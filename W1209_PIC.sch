@@ -15597,7 +15597,7 @@ Source: http://eshop.phoenixcontact.com .. 1729128.pdf</description>
 <clearance class="1" value="0.762"/>
 </class>
 <class number="2" name="N2" width="0.762" drill="0">
-<clearance class="2" value="0.635"/>
+<clearance class="2" value="0.762"/>
 </class>
 <class number="3" name="N3" width="0.4064" drill="0">
 </class>
@@ -15753,10 +15753,10 @@ https://it.aliexpress.com/item/1-pz-0-91-pollice-OLED-modulo-0-91-bianco-blu-OLE
 <instance part="C7" gate="G$1" x="143.51" y="193.04"/>
 <instance part="R6" gate="G$1" x="132.08" y="198.12" rot="R180"/>
 <instance part="P+11" gate="1" x="123.19" y="201.93"/>
-<instance part="X5" gate="-1" x="208.28" y="71.12"/>
-<instance part="X5" gate="-2" x="208.28" y="66.04"/>
-<instance part="X1" gate="-1" x="10.16" y="190.5" rot="R180"/>
-<instance part="X1" gate="-2" x="10.16" y="195.58" rot="R180"/>
+<instance part="X5" gate="-1" x="208.28" y="66.04"/>
+<instance part="X5" gate="-2" x="208.28" y="71.12"/>
+<instance part="X1" gate="-1" x="10.16" y="195.58" rot="R180"/>
+<instance part="X1" gate="-2" x="10.16" y="190.5" rot="R180"/>
 <instance part="R7" gate="G$1" x="144.78" y="154.94" rot="R90"/>
 <instance part="R8" gate="G$1" x="149.86" y="154.94" rot="R90"/>
 <instance part="R9" gate="G$1" x="154.94" y="154.94" rot="R90"/>
@@ -15862,7 +15862,7 @@ https://it.aliexpress.com/item/1-pz-0-91-pollice-OLED-modulo-0-91-bianco-blu-OLE
 <segment>
 <pinref part="GND3" gate="1" pin="GND"/>
 <wire x1="17.78" y1="190.5" x2="17.78" y2="182.88" width="0.1524" layer="91"/>
-<pinref part="X1" gate="-1" pin="KL"/>
+<pinref part="X1" gate="-2" pin="KL"/>
 <wire x1="17.78" y1="190.5" x2="12.7" y2="190.5" width="0.1524" layer="91"/>
 </segment>
 <segment>
@@ -16187,29 +16187,10 @@ https://it.aliexpress.com/item/1-pz-0-91-pollice-OLED-modulo-0-91-bianco-blu-OLE
 </net>
 <net name="K1" class="0">
 <segment>
-<pinref part="IC2" gate="G$1" pin="RA5/OSC1"/>
-<wire x1="68.58" y1="88.9" x2="55.88" y2="88.9" width="0.1524" layer="91"/>
-<label x="58.42" y="88.9" size="1.778" layer="95"/>
-</segment>
-<segment>
 <pinref part="R7" gate="G$1" pin="2"/>
 <wire x1="144.78" y1="160.02" x2="144.78" y2="167.64" width="0.1524" layer="91"/>
 <label x="144.78" y="162.56" size="1.778" layer="95" rot="R90"/>
 </segment>
-</net>
-<net name="K2" class="0">
-<segment>
-<pinref part="IC2" gate="G$1" pin="RA4/OSC2"/>
-<wire x1="68.58" y1="86.36" x2="55.88" y2="86.36" width="0.1524" layer="91"/>
-<label x="58.42" y="86.36" size="1.778" layer="95"/>
-</segment>
-<segment>
-<pinref part="R8" gate="G$1" pin="2"/>
-<wire x1="149.86" y1="160.02" x2="149.86" y2="167.64" width="0.1524" layer="91"/>
-<label x="149.86" y="162.56" size="1.778" layer="95" rot="R90"/>
-</segment>
-</net>
-<net name="K3" class="0">
 <segment>
 <label x="15.24" y="73.66" size="1.778" layer="95"/>
 <wire x1="15.24" y1="73.66" x2="48.26" y2="73.66" width="0.1524" layer="91"/>
@@ -16226,10 +16207,29 @@ https://it.aliexpress.com/item/1-pz-0-91-pollice-OLED-modulo-0-91-bianco-blu-OLE
 <label x="58.42" y="83.82" size="1.778" layer="95"/>
 <pinref part="X4" gate="-3" pin="S"/>
 </segment>
+</net>
+<net name="K2" class="0">
+<segment>
+<pinref part="IC2" gate="G$1" pin="RA4/OSC2"/>
+<wire x1="68.58" y1="86.36" x2="55.88" y2="86.36" width="0.1524" layer="91"/>
+<label x="58.42" y="86.36" size="1.778" layer="95"/>
+</segment>
+<segment>
+<pinref part="R8" gate="G$1" pin="2"/>
+<wire x1="149.86" y1="160.02" x2="149.86" y2="167.64" width="0.1524" layer="91"/>
+<label x="149.86" y="162.56" size="1.778" layer="95" rot="R90"/>
+</segment>
+</net>
+<net name="K3" class="0">
 <segment>
 <pinref part="R9" gate="G$1" pin="2"/>
 <wire x1="154.94" y1="160.02" x2="154.94" y2="167.64" width="0.1524" layer="91"/>
 <label x="154.94" y="162.56" size="1.778" layer="95" rot="R90"/>
+</segment>
+<segment>
+<pinref part="IC2" gate="G$1" pin="RA5/OSC1"/>
+<wire x1="68.58" y1="88.9" x2="55.88" y2="88.9" width="0.1524" layer="91"/>
+<label x="58.42" y="88.9" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="N$1" class="3">
@@ -16295,12 +16295,12 @@ https://it.aliexpress.com/item/1-pz-0-91-pollice-OLED-modulo-0-91-bianco-blu-OLE
 </net>
 <net name="N$3" class="2">
 <segment>
-<wire x1="205.74" y1="66.04" x2="205.74" y2="48.26" width="0.1524" layer="91"/>
 <wire x1="205.74" y1="48.26" x2="215.9" y2="48.26" width="0.1524" layer="91"/>
 <wire x1="215.9" y1="48.26" x2="215.9" y2="30.48" width="0.1524" layer="91"/>
 <pinref part="K1" gate="2" pin="P"/>
 <wire x1="215.9" y1="30.48" x2="203.2" y2="30.48" width="0.1524" layer="91"/>
-<pinref part="X5" gate="-2" pin="KL"/>
+<pinref part="X5" gate="-1" pin="KL"/>
+<wire x1="205.74" y1="66.04" x2="205.74" y2="48.26" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$4" class="2">
@@ -16308,15 +16308,8 @@ https://it.aliexpress.com/item/1-pz-0-91-pollice-OLED-modulo-0-91-bianco-blu-OLE
 <wire x1="200.66" y1="71.12" x2="200.66" y2="40.64" width="0.1524" layer="91"/>
 <wire x1="200.66" y1="40.64" x2="203.2" y2="40.64" width="0.1524" layer="91"/>
 <pinref part="K1" gate="2" pin="S"/>
-<pinref part="X5" gate="-1" pin="KL"/>
+<pinref part="X5" gate="-2" pin="KL"/>
 <wire x1="205.74" y1="71.12" x2="200.66" y2="71.12" width="0.1524" layer="91"/>
-</segment>
-</net>
-<net name="N$6" class="3">
-<segment>
-<pinref part="R2" gate="G$1" pin="1"/>
-<wire x1="17.78" y1="195.58" x2="12.7" y2="195.58" width="0.1524" layer="91"/>
-<pinref part="X1" gate="-2" pin="KL"/>
 </segment>
 </net>
 <net name="N$7" class="0">
@@ -16342,6 +16335,13 @@ https://it.aliexpress.com/item/1-pz-0-91-pollice-OLED-modulo-0-91-bianco-blu-OLE
 <pinref part="R8" gate="G$1" pin="1"/>
 <pinref part="DS1" gate="G$1" pin="CA@2"/>
 <wire x1="149.86" y1="149.86" x2="149.86" y2="142.24" width="0.1524" layer="91"/>
+</segment>
+</net>
+<net name="N$6" class="3">
+<segment>
+<pinref part="R2" gate="G$1" pin="1"/>
+<pinref part="X1" gate="-1" pin="KL"/>
+<wire x1="17.78" y1="195.58" x2="12.7" y2="195.58" width="0.1524" layer="91"/>
 </segment>
 </net>
 </nets>
