@@ -15621,7 +15621,7 @@ Source: http://eshop.phoenixcontact.com .. 1729128.pdf</description>
 <part name="P+6" library="supply1" deviceset="+5V" device=""/>
 <part name="GND10" library="supply1" deviceset="GND" device=""/>
 <part name="C3" library="resistor" deviceset="C-EU" device="C0805" value="100n"/>
-<part name="R3" library="resistor" deviceset="R-EU_" device="R0805" value="470"/>
+<part name="R3" library="resistor" deviceset="R-EU_" device="R0805" value="1K"/>
 <part name="GND9" library="supply1" deviceset="GND" device=""/>
 <part name="R4" library="resistor" deviceset="R-EU_" device="R0805" value="100"/>
 <part name="SG1" library="buzzer" deviceset="F/QMBIII" device=""/>
@@ -15639,7 +15639,7 @@ Source: http://eshop.phoenixcontact.com .. 1729128.pdf</description>
 <part name="D2" library="diode" deviceset="BAT42-SMD" device=""/>
 <part name="GND18" library="supply1" deviceset="GND" device=""/>
 <part name="Q1" library="transistor-npn" deviceset="BC817*" device="SMD" technology="-40"/>
-<part name="R5" library="resistor" deviceset="R-EU_" device="R0805" value="470"/>
+<part name="R5" library="resistor" deviceset="R-EU_" device="R0805" value="1K"/>
 <part name="S2" library="switch-omron" deviceset="10-XX" device="" value="pulsante"/>
 <part name="GND6" library="supply1" deviceset="GND" device=""/>
 <part name="S3" library="switch-omron" deviceset="10-XX" device="" value="pulsante"/>
@@ -15651,7 +15651,7 @@ Source: http://eshop.phoenixcontact.com .. 1729128.pdf</description>
 <part name="IC2" library="microchip2" deviceset="PIC18F14K50" device="SS"/>
 <part name="JP2" library="pinhead" deviceset="PINHD-1X4" device="" value="OLED left"/>
 <part name="JP1" library="pinhead" deviceset="PINHD-1X4" device="" value="OLED top"/>
-<part name="DS1" library="kingbright" deviceset="KLT36XX" device="" value="Display 3 digit 0.39"/>
+<part name="DS1" library="kingbright" deviceset="KLT36XX" device="" value="Display 3 digit 0.39/0.36"/>
 <part name="GND13" library="supply1" deviceset="GND" device=""/>
 <part name="P+5" library="supply1" deviceset="+5V" device=""/>
 <part name="X3" library="con-molex" deviceset="KK-156-2" device="" value="NTC"/>
@@ -15677,6 +15677,9 @@ Source: http://eshop.phoenixcontact.com .. 1729128.pdf</description>
 <part name="R8" library="resistor" deviceset="R-EU_" device="R0805" value="180"/>
 <part name="R9" library="resistor" deviceset="R-EU_" device="R0805" value="180"/>
 <part name="X4" library="con-molex" deviceset="53?-05" device="047"/>
+<part name="P+12" library="supply1" deviceset="+5V" device=""/>
+<part name="R10" library="resistor" deviceset="R-EU_" device="R0805" value="2K2"/>
+<part name="R11" library="resistor" deviceset="R-EU_" device="R0805" value="2K2"/>
 </parts>
 <sheets>
 <sheet>
@@ -15684,8 +15687,12 @@ Source: http://eshop.phoenixcontact.com .. 1729128.pdf</description>
 <text x="2.54" y="64.77" size="1.778" layer="91">Conn. Prog.</text>
 <text x="127" y="226.06" size="1.778" layer="91">mettere OLED I2C
 https://it.aliexpress.com/item/1-pz-0-91-pollice-OLED-modulo-0-91-bianco-blu-OLED-128X32-OLED-Display-LCD/32672229793.html</text>
-<text x="99.06" y="99.06" size="1.778" layer="91">invertire 11 con 19!! usb solo input
-e poi 19 con 18</text>
+<text x="99.06" y="99.06" size="1.778" layer="91">(invertire 11 con 19!! usb solo input
+e poi 19 con 18)</text>
+<text x="30.48" y="144.78" size="1.778" layer="91">ERRORE PCB 2023, sw3 al posto di sw1/D-</text>
+<text x="53.34" y="109.22" size="1.778" layer="91">SERVE quarzo x USB, oppure usare PIC16F1459, identico!</text>
+<text x="27.94" y="43.18" size="1.778" layer="91">mancano i pullup.. su pin USB...</text>
+<text x="53.34" y="104.14" size="1.778" layer="91">AN3 in effetti</text>
 </plain>
 <instances>
 <instance part="R1" gate="G$1" x="7.62" y="119.38" rot="R90"/>
@@ -15756,7 +15763,7 @@ e poi 19 con 18</text>
 <instance part="R6" gate="G$1" x="132.08" y="198.12" rot="R180"/>
 <instance part="P+11" gate="1" x="123.19" y="201.93"/>
 <instance part="X5" gate="-1" x="208.28" y="66.04"/>
-<instance part="X5" gate="-2" x="208.28" y="71.12"/>
+<instance part="X5" gate="-2" x="208.28" y="60.96"/>
 <instance part="X1" gate="-1" x="10.16" y="195.58" rot="R180"/>
 <instance part="X1" gate="-2" x="10.16" y="190.5" rot="R180"/>
 <instance part="R7" gate="G$1" x="144.78" y="154.94" rot="R90"/>
@@ -15767,6 +15774,9 @@ e poi 19 con 18</text>
 <instance part="X4" gate="-3" x="12.7" y="73.66" rot="MR0"/>
 <instance part="X4" gate="-4" x="12.7" y="71.12" rot="MR0"/>
 <instance part="X4" gate="-5" x="12.7" y="68.58" rot="MR0"/>
+<instance part="P+12" gate="1" x="2.54" y="55.88"/>
+<instance part="R10" gate="G$1" x="2.54" y="45.72" rot="R90"/>
+<instance part="R11" gate="G$1" x="20.32" y="45.72" rot="R90"/>
 </instances>
 <busses>
 </busses>
@@ -15950,6 +15960,14 @@ e poi 19 con 18</text>
 <pinref part="P+11" gate="1" pin="+5V"/>
 <wire x1="123.19" y1="198.12" x2="123.19" y2="199.39" width="0.1524" layer="91"/>
 </segment>
+<segment>
+<pinref part="P+12" gate="1" pin="+5V"/>
+<pinref part="R10" gate="G$1" pin="2"/>
+<wire x1="2.54" y1="53.34" x2="2.54" y2="50.8" width="0.1524" layer="91"/>
+<pinref part="R11" gate="G$1" pin="2"/>
+<wire x1="2.54" y1="50.8" x2="20.32" y2="50.8" width="0.1524" layer="91"/>
+<junction x="2.54" y="50.8"/>
+</segment>
 </net>
 <net name="N$5" class="0">
 <segment>
@@ -15992,19 +16010,23 @@ e poi 19 con 18</text>
 <pinref part="S2" gate="1" pin="P"/>
 <pinref part="S2" gate="1" pin="P1"/>
 <wire x1="25.4" y1="25.4" x2="27.94" y2="25.4" width="0.1524" layer="91"/>
-<wire x1="25.4" y1="25.4" x2="25.4" y2="38.1" width="0.1524" layer="91"/>
+<wire x1="25.4" y1="25.4" x2="25.4" y2="40.64" width="0.1524" layer="91"/>
 <junction x="25.4" y="25.4"/>
 <label x="25.4" y="30.48" size="1.778" layer="95" rot="R90"/>
+<pinref part="R11" gate="G$1" pin="1"/>
+<wire x1="20.32" y1="40.64" x2="25.4" y2="40.64" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="SW1" class="0">
 <segment>
-<wire x1="7.62" y1="25.4" x2="7.62" y2="38.1" width="0.1524" layer="91"/>
+<wire x1="7.62" y1="25.4" x2="7.62" y2="40.64" width="0.1524" layer="91"/>
 <pinref part="S1" gate="1" pin="P"/>
 <wire x1="7.62" y1="25.4" x2="10.16" y2="25.4" width="0.1524" layer="91"/>
 <pinref part="S1" gate="1" pin="P1"/>
 <junction x="7.62" y="25.4"/>
 <label x="7.62" y="30.48" size="1.778" layer="95" rot="R90"/>
+<pinref part="R10" gate="G$1" pin="1"/>
+<wire x1="2.54" y1="40.64" x2="7.62" y2="40.64" width="0.1524" layer="91"/>
 </segment>
 <segment>
 <pinref part="IC2" gate="G$1" pin="RA1/D-"/>
@@ -16015,6 +16037,11 @@ e poi 19 con 18</text>
 <label x="15.24" y="71.12" size="1.778" layer="95"/>
 <wire x1="15.24" y1="71.12" x2="33.02" y2="71.12" width="0.1524" layer="91"/>
 <pinref part="X4" gate="-4" pin="S"/>
+</segment>
+<segment>
+<wire x1="15.24" y1="152.4" x2="25.4" y2="152.4" width="0.1524" layer="91"/>
+<label x="17.78" y="152.4" size="1.778" layer="95"/>
+<pinref part="USB1" gate="G$1" pin="2"/>
 </segment>
 </net>
 <net name="N$2" class="0">
@@ -16042,11 +16069,6 @@ e poi 19 con 18</text>
 <wire x1="40.64" y1="25.4" x2="43.18" y2="25.4" width="0.1524" layer="91"/>
 <junction x="43.18" y="25.4"/>
 <label x="43.18" y="30.48" size="1.778" layer="95" rot="R90"/>
-</segment>
-<segment>
-<wire x1="15.24" y1="152.4" x2="25.4" y2="152.4" width="0.1524" layer="91"/>
-<label x="17.78" y="152.4" size="1.778" layer="95"/>
-<pinref part="USB1" gate="G$1" pin="2"/>
 </segment>
 <segment>
 <label x="15.24" y="73.66" size="1.778" layer="95"/>
@@ -16284,17 +16306,17 @@ e poi 19 con 18</text>
 <wire x1="215.9" y1="48.26" x2="215.9" y2="30.48" width="0.1524" layer="91"/>
 <pinref part="K1" gate="2" pin="P"/>
 <wire x1="215.9" y1="30.48" x2="203.2" y2="30.48" width="0.1524" layer="91"/>
-<pinref part="X5" gate="-1" pin="KL"/>
-<wire x1="205.74" y1="66.04" x2="205.74" y2="48.26" width="0.1524" layer="91"/>
+<pinref part="X5" gate="-2" pin="KL"/>
+<wire x1="205.74" y1="60.96" x2="205.74" y2="48.26" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$4" class="2">
 <segment>
-<wire x1="200.66" y1="71.12" x2="200.66" y2="40.64" width="0.1524" layer="91"/>
+<wire x1="200.66" y1="66.04" x2="200.66" y2="40.64" width="0.1524" layer="91"/>
 <wire x1="200.66" y1="40.64" x2="203.2" y2="40.64" width="0.1524" layer="91"/>
 <pinref part="K1" gate="2" pin="S"/>
-<pinref part="X5" gate="-2" pin="KL"/>
-<wire x1="205.74" y1="71.12" x2="200.66" y2="71.12" width="0.1524" layer="91"/>
+<pinref part="X5" gate="-1" pin="KL"/>
+<wire x1="205.74" y1="66.04" x2="200.66" y2="66.04" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$7" class="0">
