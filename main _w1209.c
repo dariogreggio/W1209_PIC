@@ -1,7 +1,7 @@
 /********************************************************************
  FileName:		main.c
  Dependencies:	See INCLUDES section
- Processor:		PIC18, PIC24, and PIC32 USB Microcontrollers
+ Processor:		PIC16, PIC18, PIC24, and PIC32 USB Microcontrollers
  Hardware:		This demo is natively intended to be used on Microchip USB demo
  				boards supported by the MCHPFSUSB stack.  See release notes for
  				support matrix.  This demo can be modified for use on other hardware
@@ -12,8 +12,8 @@
  Software License Agreement:
 
  The software supplied herewith by Microchip Technology Incorporated
- (the “Company”) for its PIC® Microcontroller is intended and
- supplied to you, the Company’s customer, for use solely and
+ (the ?Company?) for its PIC® Microcontroller is intended and
+ supplied to you, the Company?s customer, for use solely and
  exclusively on Microchip PIC Microcontroller products. The
  software is owned by the Company and/or its supplier, and is
  protected under applicable copyright laws. All rights are reserved.
@@ -65,16 +65,22 @@ W1209 termostato clone
 
 #include "swi2c.h"
 
+#ifdef USA_USB
 #include "USB.h"
+#endif
 #include "HardwareProfile.h"
 
 
+#ifdef USA_USB
 #include "usb_function_hid.h"
+#endif
 
 
 /** CONFIGURATION **************************************************/
 
 #if defined(__18CXX)
+// https://forum.microchip.com/s/topic/a5C3l000000MUIBEA4/t346503 per pin speciali
+
         #pragma config CPUDIV = NOCLKDIV
         #pragma config USBDIV = OFF
 //        #pragma config FOSC   = HS  per USB SERVE quarzo! 6 o 24MHz...
@@ -123,7 +129,7 @@ const rom char data7=0x00u;
 #endif
 
 
-#if defined(__XC)
+#if defined(__XC8)
 // PIC16F1459 Configuration Bit Settings
 // 'C' source line config statements
 
@@ -164,8 +170,11 @@ const rom char data7=0x00u;
 WORD clockTune=CLOCK_TUNE_DEFAULT;		//deve andare in Flash...
 
 
-static const rom char CopyrString[]= {'T','e','r','m','o','s','t','a','t','o',' ','W','1','2','0','9',' ','c','o','n',' ',
-	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','0','2','/','0','8','/','2','3', 0 };
+static const rom char CopyrString[]= {'T','e','r','m','o','s','t','a','t','o',' ','W','1','2','0','9',' ',
+#ifdef USA_USB
+'c','o','n',' ','U','S','B',' ',
+#endif
+	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','1','5','/','0','8','/','2','3', 0 };
 
 const rom BYTE table_7seg[]={ 0, 	//PGFEDCBA
 													0b00111111,0b00000110,0b01011011,0b01001111,0b01100110,
@@ -196,7 +205,44 @@ const rom BYTE table_7seg[]={ 0, 	//PGFEDCBA
     #pragma udata
 #endif
 #endif
+#if defined(__XC8)
+    #if defined(_18F14K50) || defined(_18F13K50) || defined(_18LF14K50) || defined(_18LF13K50)
+        #define IN_DATA_BUFFER_ADDRESS 0x260
+        #define OUT_DATA_BUFFER_ADDRESS (IN_DATA_BUFFER_ADDRESS + HID_INT_IN_EP_SIZE)
+        #define IN_DATA_BUFFER_ADDRESS_TAG @IN_DATA_BUFFER_ADDRESS
+        #define OUT_DATA_BUFFER_ADDRESS_TAG @OUT_DATA_BUFFER_ADDRESS
+    #elif  defined(_18F2455)   || defined(_18F2550)   || defined(_18F4455)  || defined(_18F4550)\
+        || defined(_18F2458)   || defined(_18F2453)   || defined(_18F4558)  || defined(_18F4553)\
+        || defined(_18LF24K50) || defined(_18F24K50)  || defined(_18LF25K50)\
+        || defined(_18F25K50)  || defined(_18LF45K50) || defined(_18F45K50)
+        #define IN_DATA_BUFFER_ADDRESS 0x500
+        #define OUT_DATA_BUFFER_ADDRESS (IN_DATA_BUFFER_ADDRESS + HID_INT_IN_EP_SIZE)
+        #define IN_DATA_BUFFER_ADDRESS_TAG @IN_DATA_BUFFER_ADDRESS
+        #define OUT_DATA_BUFFER_ADDRESS_TAG @OUT_DATA_BUFFER_ADDRESS
+    #elif defined(_18F4450) || defined(_18F2450)
+        #define IN_DATA_BUFFER_ADDRESS 0x480
+        #define OUT_DATA_BUFFER_ADDRESS (IN_DATA_BUFFER_ADDRESS + HID_INT_IN_EP_SIZE)
+        #define IN_DATA_BUFFER_ADDRESS_TAG @IN_DATA_BUFFER_ADDRESS
+        #define OUT_DATA_BUFFER_ADDRESS_TAG @OUT_DATA_BUFFER_ADDRESS
+    #elif defined(_16F1459000)  
+#warning  se lo metto dà errore RAM! VERIFICARE
+        #define IN_DATA_BUFFER_ADDRESS 0x2050
+        #define OUT_DATA_BUFFER_ADDRESS (IN_DATA_BUFFER_ADDRESS + HID_INT_IN_EP_SIZE)
+        #define IN_DATA_BUFFER_ADDRESS_TAG @IN_DATA_BUFFER_ADDRESS
+        #define OUT_DATA_BUFFER_ADDRESS_TAG @OUT_DATA_BUFFER_ADDRESS
+    #else
+        #define IN_DATA_BUFFER_ADDRESS_TAG
+        #define OUT_DATA_BUFFER_ADDRESS_TAG
+    #endif
+#else
+    #define IN_DATA_BUFFER_ADDRESS_TAG
+    #define OUT_DATA_BUFFER_ADDRESS_TAG
+#endif
 
+#if defined(__XC8)
+volatile unsigned char hid_report_in[HID_INT_IN_EP_SIZE] IN_DATA_BUFFER_ADDRESS_TAG;
+volatile unsigned char hid_report_out[HID_INT_OUT_EP_SIZE] OUT_DATA_BUFFER_ADDRESS_TAG;
+#endif
 #define ReceivedDataBuffer hid_report_out
 #define ToSendDataBuffer hid_report_in
 //unsigned char ReceivedDataBuffer[HID_INT_IN_EP_SIZE];
@@ -207,31 +253,46 @@ const rom BYTE table_7seg[]={ 0, 	//PGFEDCBA
 #endif
 
 
+#ifdef USA_USB
 USB_HANDLE USBOutHandle = 0;
 USB_HANDLE USBInHandle = 0;
+#endif
 
 
 BYTE InAlert=FALSE,USBOn=FALSE;
 int Temperature=200,oldTemperature=200,tempThreshold=0;
 
+#if defined(__18CXX)
 #ifndef __EXTENDED18__
 #pragma udata access ACCESSBANK
 #else
 #pragma udata gpr0
 #define near
 #endif
+#endif
+#if defined(__18CXX)
 volatile near unsigned char Displays[3];			// 3 display 
+#else
+volatile unsigned char Displays[3];			// 3 display 
+#endif
 
+#if defined(__18CXX)
 #pragma udata gpr0
+#endif
 volatile BYTE dim=FALSE;
 BYTE CelsiusFahrenheit=0,tempThresholdDirection=0 /* > */;
 BYTE Buzzer=0;
 WORD logInterval=600 /*decimi*/;
-static BYTE firstPassDisplay=30;
+static BYTE firstPassDisplay=8;
 volatile WORD tick10=0;
 volatile BYTE second_10=0;
+#if defined(__XC8)
+volatile PIC24_RTCC_DATE currentDate;
+volatile PIC24_RTCC_TIME currentTime;
+#else
 volatile PIC24_RTCC_DATE currentDate={0,0,0};
 volatile PIC24_RTCC_TIME currentTime={0,0,0};
+#endif
 const BYTE dayOfMonth[12]={31,28,31,30,31,30,31,31,30,31,30,31};
 volatile DWORD milliseconds;
 
@@ -241,10 +302,12 @@ volatile DWORD milliseconds;
 /** PRIVATE PROTOTYPES *********************************************/
 static void InitializeSystem(void);
 int UserInit(void);
+#ifdef USA_USB
 void USBDeviceTasks(void);
 void ProcessIO(void);
 void sendEP1(void);
 void USBCBSendResume(void);
+#endif
 
 
 /** DECLARATIONS ***************************************************/
@@ -317,10 +380,11 @@ int main(void)
 
 	UserInit();
 
+#ifdef USA_USB
   #if defined(USB_INTERRUPT)
 //    USBDeviceAttach();
   #endif
-
+#endif
 
 
   while(1) {
@@ -332,6 +396,7 @@ int main(void)
 //Displays[2]=0xff;
 
 
+#ifdef USA_USB
     #if defined(USB_POLLING)
 // Check bus status and service USB interrupts.
 #ifndef __DEBUG
@@ -361,10 +426,12 @@ int main(void)
 //			USBDeviceState= DETACHED_STATE;
     	} 
   #endif
+#endif
 
 
 // Application-specific tasks.
 // Application related code may be added here, or in the ProcessIO() function.
+#ifdef USA_USB
     ProcessIO();        // 
 
     //if we are in the enumeration process then we don't want to start initializing
@@ -372,6 +439,7 @@ int main(void)
     if((USBDeviceState < CONFIGURED_STATE) && (USBDeviceState > ATTACHED_STATE)) {
 //      continue; no...
     	}
+#endif
 
 //mLED_1^=1;
 
@@ -406,6 +474,7 @@ static void InitializeSystem(void) {
 
 	ClrWdt();
 
+#if !defined(__XC8)
 	StatusReset();
 
 	OSCCONbits.IRCF0=0;		// 8MHz con l'interno!
@@ -413,16 +482,27 @@ static void InitializeSystem(void) {
 	OSCCONbits.IRCF2=1;
 	OSCTUNE = 0b00000000;			// provo a scendere verso 6MHz per USB :D ma fa il +-3.2% al max...
 //(PLL va solo se 8MHz...)
+#else
+  OSCTUNE = 0;
+  OSCCON = 0xFC;          //16MHz HFINTOSC with 3x PLL enabled (48MHz operation)
+  ACTCON = 0x90;          //Enable active clock tuning with USB
+#endif
 
 	CM1CON0=0b00000000;
 	CM2CON0=0b00000000;
+#if defined(__XC8)
+	ANSELA=0b00000000;
+	ANSELC=0b00000000;
+	ANSELAbits.ANSA4=1;
+#else
 	ANSEL=0b00000000;
 	ANSELH=0b00000000;
-	ANSELbits.ANS4=1;
+	ANSELbits.ANS3=1;
+#endif
 
 
 	TRISA = 0b00011011;		// led; AN0; pulsanti;
-	TRISB = 0b00000000;		// catodi; pulsanti; 
+	TRISB = 0b00000000;		// catodi; 
 	TRISC = 0b00000000;		// display; OLed-I2C; 
 //	ODCA  = 0b0000000010000000;		// open collector
 
@@ -435,9 +515,21 @@ static void InitializeSystem(void) {
 	LATB = 0b00000000;		// ; 
 	LATC = 0b00000000;		// 
 
+	WPUA=0b00001011;			// usb cmq no...
+	WPUB=0b00000000;
+
+// https://forum.microchip.com/s/topic/a5C3l000000MCLJEA4/t277505 porcodio RA0 RA1
+#ifndef USA_USB
+	IOCA= 0b00000011;
+#endif
+
+
+#if defined(__XC8)
+  APFCON=0;     // no remapping
+#endif
 
   
-
+#ifdef USA_USB
 //	The USB specifications require that USB peripheral devices must never source
 //	current onto the Vbus pin.  Additionally, USB peripherals should not source
 //	current on D+ or D- when the host/hub is not actively powering the Vbus line.
@@ -474,59 +566,83 @@ static void InitializeSystem(void) {
     #if defined(USE_SELF_POWER_SENSE_IO)
     tris_self_power = INPUT_PIN;	// See HardwareProfile.h
     #endif
+#endif
 
 
+#if !defined(__XC8)
 	RCONbits.IPEN=1;				// interrupt in Modalita' Avanzata!
+#endif
 
+#if defined(__XC8)
+//	T0CON=0b00000011;								//
+  OPTION_REG=0b00000101;    // pullup; prescaler 1:64
+	T1CON=0b00110001;								// prescaler 1:8
+	INTCONbits.T0IE = 1;
+	PIE1bits.TMR1IE = 1;
+#else
 	OpenTimer0(TIMER_INT_ON & T0_8BIT & T0_SOURCE_INT & T0_PS_1_64);
 										// (la frequenza di TMR0 e' 48/4MHz, divido per 64 )
 
 	OpenTimer1(TIMER_INT_ON & T1_16BIT_RW & T1_SOURCE_INT & T1_PS_1_8 & T1_OSC1EN_OFF & T1_SYNC_EXT_OFF );
+#endif
 
+#if !defined(__XC8)
 	INTCON2bits.TMR0IP=1;			//high pty Timer 0
 	IPR1bits.TMR1IP=0;				//low pty Timer 1
+#endif
 
 	ClrWdt();
 	
+
 warm_reset:
 	INTCONbits.GIE = 1;			// attiva interrupt globali / high pty
+#if !defined(__XC8)
 	INTCONbits.PEIE = 1;			// attiva low pty interrupt 
+#endif
 
 //	WriteTimer0(TMR0BASE);					// inizializzo TMR0
 			//WRITETIMER0() dovrebbe essere la macro!
 
+#if defined(__XC8)
+  TMR1H=TMR1BASE/256;
+	TMR1L=TMR1BASE & 255;
+#else
 	WriteTimer1(TMR1BASE);					// inizializzo TMR1
+#endif
 
 
 //  CM3CON=0;		// comparatori off (Rxpin) ?? boh
 
 
-// buzzer 4KHz
-	CCP1CON=0b00001100;			//			 TMR2: PWM mode
-	CCPR1L=BEEP_STD_FREQ/2;				// duty cycle 50%
-//	movlw		BEEP_STD_FREQ/2
-//	movwf	 CCPR1H				; questo è read-only in PWM-mode
-	T2CON=0b00000011;								// set prescaler T2
-	//OpenTimer2(TIMER_INT_OFF & T2_PS_1_1 & T2_POST_1_8);
-	// OpenPWM1(); USARE??
-
-	PR2=BEEP_STD_FREQ;
+// buzzer 4KHz QUA in software essendo pin led/buzzer
+#if !defined(__XC8)
+#endif
+//	T2CON=0b00000011;								// set prescaler T2
+//	PR2=BEEP_STD_FREQ;
 
 
 #ifdef USA_ANALOG
+#if defined(__XC8)
+	ADCON2=0b00101010;	//		; Left justify; 12 Tad, FOsc/32
+	ADCON1=0b00000000;	//		; VRef +/-
+	ADCON0=0b00001101;	//		; AN3 RA0 ; ON
+	// VERIFICA su questo PIC! 
+#else
 //	OpenADC(ADC_FOSC_32 & ADC_LEFT_JUST & ADC_12_TAD, ADC_CH3 & ADC_INT_OFF & ADC_VREFPLUS_VDD & ADC_VREFMINUS_VSS,
 //		ADC_4ANA & 0xf /*patch di g.dar*/);
 	// VERIFICA su questo PIC! 
 	ADCON2=0b00101010;	//		; Left justify; 12 Tad, FOsc/32
 	ADCON1=0b00000000;	//		; VRef +/-
-	ADCON0=0b00001101;	//		; AN3 RA0 ; ON
+	ADCON0=0b00001101;	//		; AN3 RA4 ; ON
+#endif
 #endif
 
 
+#ifdef USA_USB
 #ifndef __DEBUG
   USBDeviceInit();
 #endif
-
+#endif
 
 	} //end InitializeSystem
 
@@ -547,14 +663,17 @@ int UserInit(void) {
 	currentDate.mon=1;
 
 
+#ifdef USA_USB
   //initialize the variable holding the handle for the last transmission
   USBOutHandle = 0;
   USBInHandle = 0;
+#endif
 
 	ClrWdt();
 	return 1;
 	}
 
+#ifdef USA_USB
 void sendEP1(void) {
 
 	USBInHandle = HIDTxPacket(HID_EP,(BYTE*)ToSendDataBuffer,64);
@@ -566,7 +685,7 @@ void sendEP1(void) {
 		;
 		}
 	}
-
+#endif
 
 /********************************************************************
  * Function:        void ProcessIO(void)
@@ -584,6 +703,7 @@ void sendEP1(void) {
  *
  * Note:            None
  *******************************************************************/
+#ifdef USA_USB
 void ProcessIO(void) { 
 	int i;  
 
@@ -802,45 +922,85 @@ void prepStatusBuffer(BYTE t) {
 	prepOutBuffer(CMD_GETSTATUS);				// indicatore
 	ToSendDataBuffer[2]=t;
 	}
+#endif
 
 void UserTasks(void) {
 	int i;
-	static BYTE inMenu=0,oldSw=3,repeatCounter=0,inMenuTime=0;
+	static BYTE inMenu=0,oldSw=7,repeatCounter=0,inMenuTime=0;
 	static WORD cnt=0,cnt2=0;
 
 
-	if(second_10) {
+	if(second_10) {			// 1/2 sec qua...
 		second_10=0;
 
 		cnt++;
 		cnt2++;
 
+ 	mLED_1 ^= 1; //
+
+/*		if(!sw2) {
+				showChar('0',0,0);
+				showChar('1',1,0);
+				showChar('2',2,0);
+		}
+	else {
+				showChar('8',0,0);
+				showChar('7',1,1);
+				showChar('5',2,0);
+		}
+return;*/
+/*		if(!sw3) {
+				showChar(CopyrString[26],2,0);
+				showChar(CopyrString[24],1,1);
+				showChar(CopyrString[23],0,0);
+		}
+	else {
+				showChar(CopyrString[30],2,1);
+				showChar(CopyrString[29],1,0);
+				showChar(CopyrString[27],0,1);
+		}
+return;*/
+
+
 
 		if(firstPassDisplay) {			// lascia Splash per un po'..
 			firstPassDisplay--;
-			if(firstPassDisplay>30) {
+			if(firstPassDisplay>6) {
 				showChar('-',0,0);
 				showChar('-',1,0);
 				showChar('-',2,0);
+				Beep();			
 				}
-			else if(firstPassDisplay>15) {
-				showChar(CopyrString[38],0,0);
-				showChar(CopyrString[39],1,1);
-				showChar(CopyrString[41],2,0);
+			else if(firstPassDisplay>3) {
+#ifdef USA_USB
+				showChar(CopyrString[34],2,0);
+				showChar(CopyrString[32],1,1);
+				showChar(CopyrString[31],0,0);
+#else
+				showChar(CopyrString[26],2,0);
+				showChar(CopyrString[24],1,1);
+				showChar(CopyrString[23],0,0);
+#endif
 				}
 			else {
-				showChar(CopyrString[42],0,1);
-				showChar(CopyrString[44],1,0);
-				showChar(CopyrString[45],2,0);
+#ifdef USA_USB
+				showChar(CopyrString[38],2,1);
+				showChar(CopyrString[37],1,0);
+				showChar(CopyrString[35],0,1);
+#else
+				showChar(CopyrString[30],2,1);
+				showChar(CopyrString[29],1,0);
+				showChar(CopyrString[27],0,1);
+#endif
 				}
 			return;
 			}
 
-		cnt+=10;			// 
+//		cnt+=10;			// 
 
-		if(USBOn || !sw1 || !sw2) {
+		if(USBOn || !sw1 || !sw2 || !sw3) {
 	ClrWdt();
-			inMenuTime=100;			// 10 sec per timeout
+			inMenuTime=20;			// 10 sec per timeout
 			}
 
 		if(!sw2 && (oldSw & 2)) {
@@ -939,7 +1099,7 @@ void UserTasks(void) {
 				break;
 			}		//inMenu
 
-		if(cnt >= 150) {			// 15 secondi FARE ANCHE 30!
+		if(cnt >= 4   /*150*/) {			// 15 secondi FARE ANCHE 30! QUA meno...
 			cnt=0;
 
 //		T3CONbits.TON=1;
@@ -969,6 +1129,9 @@ void UserTasks(void) {
 #elif USA_SHT21 
 			Temperature=(Temperature+oldTemperature)/2;			// FARE arrotondo 0.1
 			oldTemperature=((int)(Temperature/2))*2;
+#elif USA_ANALOG 
+			Temperature=(Temperature+oldTemperature)/2;			// FARE arrotondo 0.1
+			oldTemperature=((int)(Temperature/10))*10;
 #endif
 			if(!tempThresholdDirection)
 				InAlert=Temperature > tempThreshold;
@@ -988,12 +1151,19 @@ void UserTasks(void) {
 //fare anche brevissimo lampeggio led? uno o + punti display? ***
 
 
+#ifdef USA_USB
 			if(USBOn) {
+#if !defined(__XC8)   // manca memoria!
 				sprintf(buffer,"%02u/%02u/%02u,%02u:%02u:%02u,%4.1f,%c\r\n",
 					currentDate.mday,currentDate.mon,currentDate.year,
 					currentTime.hour,currentTime.min,currentTime.sec,
 					(double)Temperature/10.0,InAlert ? 'A' : '.'
 					);
+#else
+        buffer[0]='M';
+        buffer[1]=0;
+        // :D
+#endif
 				}
 //			  showNumbers(MDD_MediaDetect(),0);
 
@@ -1004,10 +1174,11 @@ void UserTasks(void) {
 			
 				sendEP1();
 				}
+#endif
 
 			}		// cnt2 > 600 (1 minuto)
 
-		oldSw=(sw1 ? 1 : 0) | (sw2 ? 2 : 0);
+		oldSw=(sw1 ? 1 : 0) | (sw2 ? 2 : 0) | (sw3 ? 4 : 0);
 
 		if(!USBOn) {
 //		__delay_ms(200);
@@ -1016,16 +1187,17 @@ void UserTasks(void) {
 	ClrWdt();
 
 
+// BOH qua...?
 			if(!sw1 /* || !sw2*/) {
-				oldSw=(sw1 ? 1 : 0) | (sw2 ? 2 : 0);
+				oldSw=(sw1 ? 1 : 0) | (sw2 ? 2 : 0) | (sw3 ? 4 : 0);
 				}
 			else {
 	//		ClrWdt();
 				milliseconds+=8192+clockTune; 	//tarato su wdt..
 				bumpClock();
-				second_10=1;		// 
-				cnt+=79;					// 8 sec circa (per mis. temperatura
-				cnt2+=79;					// 8 sec circa (per SDcard
+//				second_10=1;		// 
+//				cnt+=16;					// 8 sec circa (per mis. temperatura
+//				cnt2+=16;					// 8 sec circa (per SDcard
 				}
 
 			}
@@ -1033,21 +1205,19 @@ void UserTasks(void) {
 		}		// second_1
 
 	if(USBOn) {
-	ClrWdt();
+		ClrWdt();
 		}
 
 	}
 
 void Beep(void) {
+	int n=2000;		// 1/2 sec
 
-	T2CONbits.TMR2ON=1;
-	__delay_ms(100);
-	ClrWdt();
-	__delay_ms(100);
-	ClrWdt();
-	__delay_ms(100);
-	ClrWdt();
-	T2CONbits.TMR2ON=0;
+	while(n--) {
+		mLED_1_Toggle();
+		ClrWdt();
+		__delay_us(125);		// 4KHz
+		}	
 	}
 
 
@@ -1064,6 +1234,7 @@ BYTE from_bcd(BYTE n) {
 
 
 // ---------------------------------------------------------------------------------------
+#if !defined(__XC8)
 void EEscrivi_(SHORTPTR addr,BYTE n) {		// usare void * ?
 
 	EEADR = (BYTE)addr;
@@ -1111,9 +1282,10 @@ WORD EEleggiWord(SHORTPTR addr) {			// usare void * ?
 
 	return n;
 	}
-
+#endif
 
 // -------------------------------------------------------------------------------------
+#if !defined(__XC8)
 //Delays W microseconds (includes movlw, call, and return) @ 48MHz
 void __delay_us(BYTE uSec) {
 
@@ -1176,8 +1348,10 @@ void __delay_ms(BYTE n) {				// circa n ms
 		Delay_uS(250);
 		} while(--n);
 	}
+#endif
 
 
+#ifdef USA_USB
 // ******************************************************************************************************
 // ************** USB Callback Functions ****************************************************************
 // ******************************************************************************************************
@@ -1667,6 +1841,14 @@ BOOL MyUSBSleepOnSuspend(void) {
   return TRUE;
 	}
 
+#else			// serve se non ho 2 progetti diversi, perché linkata da robba usb...
+
+#if !defined(__XC8)
+BOOL USER_USB_CALLBACK_EVENT_HANDLER(int /*USB_EVENT*/ event, void *pdata, WORD size) {
+	}
+#endif
+
+#endif
 
 
 /*****************************************************************************
@@ -1763,6 +1945,11 @@ void showText(char *s) {
 
 // ---------------------------------------------------------------------
 #ifdef USA_ANALOG
+#if defined(__XC8)
+#define ConvertADC() ADCON0bits.GO=1
+#define BusyADC() (ADCON0bits.GO_nDONE)
+#define ReadADC() ADRESH		// usare 10 bit??
+#endif
 signed int leggi_tempAna() {			// in decimi °C
 	WORD n;
 
@@ -1771,8 +1958,14 @@ signed int leggi_tempAna() {			// in decimi °C
 		ClrWdt();
 	n=ReadADC();
 
-	if(!n || n==0xffff)		// segnalo errore se chip guasto
-		return INVALID_READOUT;
+//	if(!n || n==0xffff)		// segnalo errore se chip guasto
+//		return INVALID_READOUT;
+
+	n= n/10;
+
+
+n=ADRESH;
+
 	return n;
 	}
 

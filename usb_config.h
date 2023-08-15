@@ -57,7 +57,7 @@
 								// application related data.
 									
 #define USB_MAX_NUM_INT     	1   // For tracking Alternate Setting
-#define USB_MAX_EP_NUMBER	    2
+#define USB_MAX_EP_NUMBER	    1
 
 //Device descriptor - if these two definitions are not defined then
 //  a ROM USB_DEVICE_DESCRIPTOR variable by the exact name of device_dsc
@@ -161,7 +161,7 @@
 
 /* HID */
 #define HID_INTF_ID             0x01
-#define HID_EP 					2
+#define HID_EP 					1
 #define HID_INT_OUT_EP_SIZE     64
 #define HID_INT_IN_EP_SIZE      64
 #define HID_NUM_OF_DSC          1
@@ -181,7 +181,7 @@
 								// application related data.
 									
 #define USB_MAX_NUM_INT     	1   // For tracking Alternate Setting
-#define USB_MAX_EP_NUMBER	    2
+#define USB_MAX_EP_NUMBER	    1
 
 //Device descriptor - if these two definitions are not defined then
 //  a ROM USB_DEVICE_DESCRIPTOR variable by the exact name of device_dsc
@@ -278,30 +278,20 @@
 
 
 /** DEVICE CLASS USAGE *********************************************/
-#define USB_USE_MSD
 #define USB_USE_HID
 
 /** ENDPOINTS ALLOCATION *******************************************/
 
-/* MSD */
-#define MSD_INTF_ID             0x00
-#define MSD_IN_EP_SIZE          64u
-#define MSD_OUT_EP_SIZE         64u
-#define MAX_LUN                 0    //Includes 0, 0 == 1 LUN, 1 == 2 LUNs, etc.
-#define MSD_DATA_IN_EP          1u
-#define MSD_DATA_OUT_EP         1u
-#define MSD_BUFFER_ADDRESS      0x600
-
 /* HID */
 #define HID_INTF_ID             0x01
-#define HID_EP 					2
+#define HID_EP 					1
 #define HID_INT_OUT_EP_SIZE     64
 #define HID_INT_IN_EP_SIZE      64
 #define HID_NUM_OF_DSC          1
 #define HID_RPT01_SIZE          43
 #define HID_FEATURE_REPORT_BYTES  USB_EP0_BUFF_SIZE
 
-#elif defined(__XC)
+#elif defined(__XC8)
 
 /** DEFINITIONS ****************************************************/
 #define USB_EP0_BUFF_SIZE		8	// Valid Options: 8, 16, 32, or 64 bytes.
@@ -312,7 +302,7 @@
 								// application related data.
 									
 #define USB_MAX_NUM_INT     	1   // For tracking Alternate Setting
-#define USB_MAX_EP_NUMBER	    2
+#define USB_MAX_EP_NUMBER	    1
 
 //Device descriptor - if these two definitions are not defined then
 //  a ROM USB_DEVICE_DESCRIPTOR variable by the exact name of device_dsc
@@ -332,8 +322,8 @@
 //#define USB_PING_PONG_MODE USB_PING_PONG__EP0_OUT_ONLY
 //#define USB_PING_PONG_MODE USB_PING_PONG__ALL_BUT_EP0		//NOTE: This mode is not supported in PIC18F4550 family rev A3 devices
 
-//#define USB_POLLING
-#define USB_INTERRUPT  
+#define USB_POLLING
+//#define USB_INTERRUPT  
 
 /* Parameter definitions are defined in usb_device.h */
 #define USB_PULLUP_OPTION USB_PULLUP_ENABLE
@@ -416,7 +406,7 @@
 
 /* HID */
 #define HID_INTF_ID             0x01
-#define HID_EP 					2
+#define HID_EP 					1
 #define HID_INT_OUT_EP_SIZE     64
 #define HID_INT_IN_EP_SIZE      64
 #define HID_NUM_OF_DSC          1

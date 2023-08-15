@@ -9,6 +9,7 @@
 
 //#define FLASH_TIME 7
 #define USA_SW_RTC 1
+//#define USA_USB 1 // v. progetto , in MPLABX / PIC16
 
 //#define USA_TC74 1
 //#define USA_MCP9800 1

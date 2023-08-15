@@ -31,18 +31,26 @@ const rom char days_month[2][12] = {
   { 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
 	};
 
+#if defined(__18CXX)
 #ifndef __EXTENDED18__
 #pragma udata access ACCESSBANK
 #else
 #pragma udata gpr1
 #define near
 #endif
-
-#ifndef OLED
-extern volatile unsigned char Displays[3];			// 3 display 
 #endif
 
+#ifndef OLED
+#if defined(__18CXX)
+extern near volatile unsigned char Displays[3];			// 3 display 
+#else
+extern volatile unsigned char Displays[3];			// 3 display 
+#endif
+#endif
+
+#if defined(__18CXX)
 #pragma udata gpr0
+#endif
 
 
 
@@ -124,7 +132,9 @@ void Remapped_Low_ISR(void) {
 	}
 #endif	
 
+#if defined(__18CXX)
 #pragma code
+#endif
 
 
 /** D E C L A R A T I O N S **************************************************/
@@ -140,62 +150,64 @@ void Remapped_Low_ISR(void) {
 #pragma interrupt YourHighPriorityISRCode nosave=section("MATH_DATA"),section(".tmpdata")
 void YourHighPriorityISRCode() {		//
 #endif
-#if defined(__XC)
+#if defined(__XC8)
 void interrupt YourHighPriorityISRCode() {		//
 #endif
 // dev'essere 5mS
 	static BYTE dividerMux=0b00010000;
 	signed char mux_corr;
 		
+#ifdef USA_USB
   #if defined(USB_INTERRUPT)
     USBDeviceTasks();
   #endif
+#endif
 
 	if(INTCONbits.TMR0IE && INTCONbits.TMR0IF) {		// (occhio USB)
 // 4.1 mSec 2/8/23 con ottimizzazioni
 
 	
 #ifndef OLED
-		LATB=dividerMux;
+		LATB= (LATB & 0b10001111) | dividerMux;
 		switch(dividerMux) {
-			case 0b00010000:
-				LATC=~Displays[2];
+			case 0b01100000:
+				LATC=Displays[0];
 //LATD=0b00000001;
 				if(dim)
-					dividerMux = 0b00011111;
+					dividerMux = 0b11111111;
 				else
-					dividerMux = 0b00100000;
+					dividerMux = 0b01010000;
 				break;
-			case 0b00100000:
-				LATC=~Displays[1];
+			case 0b01010000:
+				LATC=Displays[1];
 //				LATD |= 0b10000000;		// dp fisso per ora!
 //LATD=0b00000010;
 				if(dim)
-					dividerMux = 0b00111111;
+					dividerMux = 0b11111111;
 				else
-					dividerMux = 0b01000000;
+					dividerMux = 0b00110000;
 				break;
-			case 0b01000000:
-				LATC=~Displays[0];
+			case 0b00110000:
+				LATC=Displays[2];
 //LATD=0b00000100;
 				if(dim)
-					dividerMux = 0b01111111;
+					dividerMux = 0b11111111;
 				else
-					dividerMux = 0b00010000;
+					dividerMux = 0b01100000;
 				break;
 
-			case 2:
-			case 4:
-			case 6:
+			case 0b01011111:
+			case 0b01001111:
+			case 0b00101111:
 				LATBbits.LATB4=1;
 				LATBbits.LATB5=1;
 				LATBbits.LATB6=1;
 				dividerMux++;
 				if(dividerMux > 128)
-					dividerMux = 0b00001000;
+					dividerMux = 0b01100000;
 				break;
 			default:
-				dividerMux = 0b00001000;
+				dividerMux = 0b01100000;
 				break;
 			}
 
@@ -228,7 +240,7 @@ void interrupt YourHighPriorityISRCode() {		//
 #if defined(__18CXX)
 		TMR0L=TMR0BASE-mux_corr;					// reinizializzo TMR0
 #endif
-#if defined(__XC)
+#if defined(__XC8)
 		TMR0=TMR0BASE-mux_corr;					// reinizializzo TMR0
 #endif
 // mah, non sembra fare molto a livello visivo...
@@ -237,7 +249,7 @@ void interrupt YourHighPriorityISRCode() {		//
 	
 		}
 	
-#if defined(__XC)
+#if defined(__XC8)
 	if(PIE1bits.TMR1IE && PIR1bits.TMR1IF) {				// Timer 1 ..  
 		PIR1bits.TMR1IF=0;					// clear bit IRQ
 
@@ -254,7 +266,7 @@ void interrupt YourHighPriorityISRCode() {		//
 
 
 // 100.000 mSec 2/8/23 #leucemiafitch
- 	mLED_1 ^= 1; //check timer	
+// 	mLED_1 ^= 1; //check timer	
 // dev'essere 10Hz
 
 
@@ -310,7 +322,7 @@ void YourLowPriorityISRCode()	{
 
 
 // 100.000 mSec 2/8/23 #leucemiafitch
- 	mLED_1 ^= 1; //check timer	
+// 	mLED_1 ^= 1; //check timer	
 // dev'essere 10Hz
 
 
