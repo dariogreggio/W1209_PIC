@@ -47,6 +47,7 @@
 
 #include "usb_config.h"
 
+//#if defined(USA_USB)			servono cmq se compili la robba usb in progetto...
 
     //#define USE_SELF_POWER_SENSE_IO
     #define tris_self_power       // Input
@@ -75,12 +76,21 @@
     //  required in the stack provided demos.  They are not required in
     //  final application design.
 
+#if defined(USA_USB) // v. sopra
+
     #define CLOCK_FREQ 48000000L
     #define GetSystemClock() CLOCK_FREQ   
 
+#else
+
+    #define CLOCK_FREQ 8000000L
+    #define GetSystemClock() CLOCK_FREQ   
+
+#endif
+
     /** LED ************************************************************/
 
-		#define mInitAllLEDs()      LATA &= 0b111011111; TRISA &= 0b111011111;
+		#define mInitAllLEDs()      LATA &= 0b11011111; TRISA &= 0b11011111;
     
 		// 
     #define mLED_1              LATAbits.LATA5

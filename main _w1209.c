@@ -174,7 +174,7 @@ static const rom char CopyrString[]= {'T','e','r','m','o','s','t','a','t','o',' 
 #ifdef USA_USB
 'c','o','n',' ','U','S','B',' ',
 #endif
-	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','1','5','/','0','8','/','2','3', 0 };
+	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','1','6','/','0','8','/','2','3', 0 };
 
 const rom BYTE table_7seg[]={ 0, 	//PGFEDCBA
 													0b00111111,0b00000110,0b01011011,0b01001111,0b01100110,
@@ -260,7 +260,7 @@ USB_HANDLE USBInHandle = 0;
 
 
 BYTE InAlert=FALSE,USBOn=FALSE;
-int Temperature=200,oldTemperature=200,tempThreshold=0;
+int Temperature=200,oldTemperature=200,tempThreshold=200;
 
 #if defined(__18CXX)
 #ifndef __EXTENDED18__
@@ -629,9 +629,9 @@ warm_reset:
 	// VERIFICA su questo PIC! 
 #else
 //	OpenADC(ADC_FOSC_32 & ADC_LEFT_JUST & ADC_12_TAD, ADC_CH3 & ADC_INT_OFF & ADC_VREFPLUS_VDD & ADC_VREFMINUS_VSS,
-//		ADC_4ANA & 0xf /*patch di g.dar*/);
+//	);
 	// VERIFICA su questo PIC! 
-	ADCON2=0b00101010;	//		; Left justify; 12 Tad, FOsc/32
+	ADCON2=0b10001010;	//		; Right justify; 12 Tad, FOsc/32
 	ADCON1=0b00000000;	//		; VRef +/-
 	ADCON0=0b00001101;	//		; AN3 RA4 ; ON
 #endif
@@ -661,6 +661,7 @@ int UserInit(void) {
 
 	currentDate.mday=1;		//preset cmq
 	currentDate.mon=1;
+	currentDate.year=23;
 
 
 #ifdef USA_USB
@@ -1000,17 +1001,17 @@ return;*/
 
 		if(USBOn || !sw1 || !sw2 || !sw3) {
 	ClrWdt();
-			inMenuTime=20;			// 10 sec per timeout
+			inMenuTime=16;			// 8 sec per timeout
 			}
 
-		if(!sw2 && (oldSw & 2)) {
+		if(!sw1 && (oldSw & 1)) {
 			inMenu++;
 			if(inMenu>7)
 				inMenu=0;
 			}
-		if(!sw1) {
+		if(!sw2) {
 			repeatCounter++;
-			if((oldSw & 1) || (repeatCounter>4)) {		// x gestire click prolungato
+			if((oldSw & 2) || (repeatCounter>4)) {		// x gestire click prolungato
 			switch(inMenu) {
 				case 0:
 					break;
@@ -1054,14 +1055,24 @@ return;*/
 					break;
 				}
 			}
-			}		//sw1
+			}		//sw2
 		else {
 			repeatCounter=0;
 			}
 
 		switch(inMenu) {
 			case 0:
-			  showNumbers(Temperature,1);
+				if(Temperature != INVALID_READOUT) {
+					if(Temperature > 999)
+				  	showNumbers(Temperature/10,0);
+					else
+				  	showNumbers(Temperature,1);
+					}
+				else {
+				  showChar('E',2,0);
+				  showChar('E',1,0);
+				  showChar('E',0,0);
+					}
 				break;
 			case 1:
 			  showChar('0'+(currentTime.hour % 10),2,0);
@@ -1099,6 +1110,15 @@ return;*/
 				break;
 			}		//inMenu
 
+		if(inMenuTime) {
+			if(!--inMenuTime)
+				inMenu=0;
+			}
+
+		if(!sw3 && (oldSw & 4)) {
+			Beep();		// tanto per prova!!
+			}
+
 		if(cnt >= 4   /*150*/) {			// 15 secondi FARE ANCHE 30! QUA meno...
 			cnt=0;
 
@@ -1117,29 +1137,31 @@ return;*/
 #endif
 
 //			mLED_1=0;
-			if(CelsiusFahrenheit) {
-				Temperature=((Temperature*9)/5)+320;
-				}
+			if(Temperature != INVALID_READOUT)
+				if(CelsiusFahrenheit) {
+					Temperature=((Temperature*9)/5)+320;
 #ifdef USA_TC74 
-			Temperature=(Temperature+oldTemperature)/2;			// arrotondo 0.5
-			oldTemperature=((int)(Temperature/10))*10;
+				Temperature=(Temperature+oldTemperature)/2;			// arrotondo 0.5
+				oldTemperature=((unsigned int)(Temperature/10))*10;
 #elif USA_MCP9800 
-			Temperature=(Temperature+oldTemperature)/2;			// FARE arrotondo 0.1
-			oldTemperature=((int)(Temperature/2))*2;
+				Temperature=(Temperature+oldTemperature)/2;			// FARE arrotondo 0.1
+				oldTemperature=((unsigned int)(Temperature/2))*2;
 #elif USA_SHT21 
-			Temperature=(Temperature+oldTemperature)/2;			// FARE arrotondo 0.1
-			oldTemperature=((int)(Temperature/2))*2;
+				Temperature=(Temperature+oldTemperature)/2;			// FARE arrotondo 0.1
+				oldTemperature=((unsigned int)(Temperature/2))*2;
 #elif USA_ANALOG 
-			Temperature=(Temperature+oldTemperature)/2;			// FARE arrotondo 0.1
-			oldTemperature=((int)(Temperature/10))*10;
+				Temperature=(Temperature+oldTemperature)/2;			// arrotondo 0.5
+				oldTemperature=((unsigned int)(Temperature/2))*2;
+//				oldTemperature=((unsigned int)(Temperature));
 #endif
-			if(!tempThresholdDirection)
-				InAlert=Temperature > tempThreshold;
-			else 
-				InAlert=Temperature < tempThreshold;
-//		T3CONbits.TON=0;
-			if(Buzzer && InAlert)
-				Beep();
+				if(!tempThresholdDirection)
+					InAlert=Temperature > tempThreshold;
+				else 
+					InAlert=Temperature < tempThreshold;
+	//		T3CONbits.TON=0;
+				if(Buzzer && InAlert)
+					Beep();
+				}
 
 			}		//1 secondi
 
@@ -1182,8 +1204,8 @@ return;*/
 
 		if(!USBOn) {
 //		__delay_ms(200);
-			inMenu=0;
-			oldSw=3;
+//			inMenu=0;
+//			oldSw=7;
 	ClrWdt();
 
 
@@ -1193,8 +1215,8 @@ return;*/
 				}
 			else {
 	//		ClrWdt();
-				milliseconds+=8192+clockTune; 	//tarato su wdt..
-				bumpClock();
+//				milliseconds+=8192+clockTune; 	//tarato su wdt..
+//				bumpClock();
 //				second_10=1;		// 
 //				cnt+=16;					// 8 sec circa (per mis. temperatura
 //				cnt2+=16;					// 8 sec circa (per SDcard
@@ -1215,8 +1237,7 @@ void Beep(void) {
 
 	while(n--) {
 		mLED_1_Toggle();
-		ClrWdt();
-		__delay_us(125);		// 4KHz
+		__delay_us(57 /*125*/);		// 4KHz
 		}	
 	}
 
@@ -1286,9 +1307,10 @@ WORD EEleggiWord(SHORTPTR addr) {			// usare void * ?
 
 // -------------------------------------------------------------------------------------
 #if !defined(__XC8)
-//Delays W microseconds (includes movlw, call, and return) @ 48MHz
+//Delays W microseconds (includes movlw, call, and return) @ 8 or 48MHz
 void __delay_us(BYTE uSec) {
 
+#if defined(USA_USB) // 
 	// 3/4 di prologo...
 	do {
 		Delay1TCY();			// 1
@@ -1302,6 +1324,14 @@ void __delay_us(BYTE uSec) {
 		} while(--uSec);		// 3
 // dovrebbero essere 12...
   //return             ; 4
+#else
+	//uSec/=2;
+	do {
+//		Delay1TCY();			// 1
+//		ClrWdt();						// 1; Clear the WDT
+		} while(--uSec);		// 4
+// dovrebbero essere 2...
+#endif
 
 /*Delay		macro	Time				// fare una cosa simile...
 
@@ -1344,8 +1374,10 @@ void __delay_ms(BYTE n) {				// circa n ms
 	do {
 		Delay_uS(250);
 		Delay_uS(250);
+#if defined(USA_USB) // @8MHz è lenta... faccio così
 		Delay_uS(250);
 		Delay_uS(250);
+#endif
 		} while(--n);
 	}
 #endif
@@ -1958,13 +1990,13 @@ signed int leggi_tempAna() {			// in decimi °C
 		ClrWdt();
 	n=ReadADC();
 
-//	if(!n || n==0xffff)		// segnalo errore se chip guasto
-//		return INVALID_READOUT;
+	if(n<400 || n>800)		// segnalo errore se chip guasto (-90..+300)
+		return INVALID_READOUT;
 
-	n= n/10;
-
-
-n=ADRESH;
+//	n= (((DWORD)n*100) +7680L /*-51200*/)/256L;		//1K partitore, 10bit, 1/2Vcc @ 20V
+	n= (n-492-20)*10;		//1K partitore, 10bit, 1/2Vcc @ 20V
+	
+//n=ADRESH;
 
 	return n;
 	}

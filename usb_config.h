@@ -46,6 +46,8 @@
 // le librerie usano SOLO e COMUNQUE usb_config.h e quindi devo mettere tutto qua...
 //#warning le librerie usano sempre USB_CONFIG.H !! verificare
 
+//#if defined(USA_USB) serve cmq se compili robba usb... in progetto
+
 #if defined(__18CXX)
 
 /** DEFINITIONS ****************************************************/
@@ -417,5 +419,6 @@
 	#error bad pic
 #endif
 
+//#endif
 
 #endif //USBCFG_H
