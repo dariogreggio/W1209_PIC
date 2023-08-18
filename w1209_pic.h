@@ -4,7 +4,7 @@
 
 #define SERNUM      1000
 #define VERNUMH     1
-#define VERNUML     0
+#define VERNUML     1
 
 
 //#define FLASH_TIME 7

@@ -169,12 +169,25 @@ const rom char data7=0x00u;
 #define CLOCK_TUNE_DEFAULT 960		//perde 1 ora su 12, 25/6/12, ecc
 WORD clockTune=CLOCK_TUNE_DEFAULT;		//deve andare in Flash...
 
+enum EDITS {
+	MENU_NOEDIT=0,
+	MENU_SECONDI,
+	MENU_MINUTI,
+	MENU_ORA,
+	MENU_GIORNO,
+	MENU_MESE,
+	MENU_ANNO,
+	MENU_SOGLIA,
+	MENU_DIREZIONESOGLIA,
+	MENU_MAX
+	};
+
 
 static const rom char CopyrString[]= {'T','e','r','m','o','s','t','a','t','o',' ','W','1','2','0','9',' ',
 #ifdef USA_USB
 'c','o','n',' ','U','S','B',' ',
 #endif
-	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','1','6','/','0','8','/','2','3', 0 };
+	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','1','8','/','0','8','/','2','3', 0 };
 
 const rom BYTE table_7seg[]={ 0, 	//PGFEDCBA
 													0b00111111,0b00000110,0b01011011,0b01001111,0b01100110,
@@ -185,8 +198,8 @@ const rom BYTE table_7seg[]={ 0, 	//PGFEDCBA
 //													0b01110100,0b01010100,0b01101101,0b01100111,0b00110111,	//indicatori...
 //													0b01110111,0b01111000,0b10000000
 													0b01110111,0b01111100,0b00111001,0b01011110,0b01111001,0b01110001,	//A..F
-													0b00111101,0b01110110,0b00110000,0b00001110,0b01110110,0b00110000,	//G..L
-													0b00110111,0b01010100,0b01011100,0b01110011,0b01100111,0b01010000,	//M..R
+													0b00111101,0b01110110,0b00110000,0b00001110,0b01110110,0b00111000,	//G..L
+													0b00110111,0b01010100,0b01011100,0b01110011,0b01100111,0b01010000,	//M..R (o piccola per distinguere)
 													0b01101101,0b01111000,0b00111110,0b00011100,0b00011100,0b00110110,	//S..X
 													0b01100010,0b01011011		//Y..Z
 	};
@@ -261,6 +274,7 @@ USB_HANDLE USBInHandle = 0;
 
 BYTE InAlert=FALSE,USBOn=FALSE;
 int Temperature=200,oldTemperature=200,tempThreshold=200;
+extern signed char clock_correction;
 
 #if defined(__18CXX)
 #ifndef __EXTENDED18__
@@ -659,9 +673,33 @@ int UserInit(void) {
 		CelsiusFahrenheit=1;		// tanto per :)
 		}
 
-	currentDate.mday=1;		//preset cmq
-	currentDate.mon=1;
-	currentDate.year=23;
+	{
+	char *p=(char *)&currentTime;
+	BYTE i;
+	for(i=0; i<sizeof(currentTime); i++) {
+		*p=EEleggi(p);
+		p++;
+		}
+	p=(char *)&currentDate;
+	for(i=0; i<sizeof(currentDate); i++) {
+		*p=EEleggi(p);
+		p++;
+		}
+	}
+
+	if(currentTime.sec==255) {
+		currentTime.sec=0;
+		currentTime.min=0;
+		currentTime.hour=12;
+		currentDate.mday=17;
+		currentDate.mon=8;
+		currentDate.year=23;
+		tempThreshold=200;
+
+		EEscrivi_(&clock_correction,clock_correction);
+		}
+
+	clock_correction=EEleggi(&clock_correction);
 
 
 #ifdef USA_USB
@@ -1006,8 +1044,27 @@ return;*/
 
 		if(!sw1 && (oldSw & 1)) {
 			inMenu++;
-			if(inMenu>7)
+			if(inMenu>MENU_MAX)
+				{
+				char *p=(char *)&currentTime;
+				BYTE i;
+				for(i=0; i<sizeof(currentTime); i++) {
+					EEscrivi_(p,*p);
+					p++;
+					}
+				p=(char *)&currentDate;
+				for(i=0; i<sizeof(currentDate); i++) {
+					EEscrivi_(p,*p);
+					p++;
+					}
+				p=(char *)&tempThreshold;
+				for(i=0; i<sizeof(tempThreshold); i++) {
+					EEscrivi_(p,*p);
+					p++;
+					}
+				EEscrivi_(tempThresholdDirection,tempThresholdDirection);
 				inMenu=0;
+				}
 			}
 		if(!sw2) {
 			repeatCounter++;
@@ -1015,22 +1072,22 @@ return;*/
 			switch(inMenu) {
 				case 0:
 					break;
-				case 1:
+				case MENU_ORA:
 				  currentTime.hour++;
 				  if(currentTime.hour>=24)
 					  currentTime.hour=0;
 					break;
-				case 2:
+				case MENU_MINUTI:
 				  currentTime.min++;
 				  if(currentTime.min>=60)
 					  currentTime.min=0;
 					break;
-				case 3:
+				case MENU_SECONDI:
 				  currentTime.sec++;
 				  if(currentTime.sec>=60)
 					  currentTime.sec=0;
 					break;
-				case 4:
+				case MENU_GIORNO:
 				  currentDate.mday++;
 					i=dayOfMonth[currentDate.mon-1];
 					if((i==28) && !(currentDate.year % 4))
@@ -1038,20 +1095,23 @@ return;*/
 					if(currentDate.mday > i) 		// (rimangono i secoli...)
 					  currentDate.mday=1;
 					break;
-				case 5:
+				case MENU_MESE:
 				  currentDate.mon++;
 				  if(currentDate.mon>=12)
 					  currentDate.mon=1;
 					break;
-				case 6:
+				case MENU_ANNO:
 				  currentDate.year++;
 				  if(currentDate.year>=100)
 					  currentDate.year=0;
 					break;
-				case 7:
+				case MENU_SOGLIA:
 				  tempThreshold+=10;
 				  if(tempThreshold>=1000)
 					  tempThreshold=-200;
+					break;
+				case MENU_DIREZIONESOGLIA:
+					tempThresholdDirection=!tempThresholdDirection;
 					break;
 				}
 			}
@@ -1074,39 +1134,48 @@ return;*/
 				  showChar('E',0,0);
 					}
 				break;
-			case 1:
+			case MENU_ORA:
 			  showChar('0'+(currentTime.hour % 10),2,0);
 			  showChar('0'+(currentTime.hour / 10),1,0);
-			  showChar('H',0,0);
+			  showChar('O',0,0); 
 				break;
-			case 2:
+			case MENU_MINUTI:
 			  showChar('0'+(currentTime.min % 10),2,0);
 			  showChar('0'+(currentTime.min / 10),1,0);
 			  showChar('M',0,0);
 				break;
-			case 3:
+			case MENU_SECONDI:
 			  showChar('0'+(currentTime.sec % 10),2,0);
 			  showChar('0'+(currentTime.sec / 10),1,0);
 			  showChar('S',0,0);
 				break;
-			case 4:
+			case MENU_GIORNO:
 			  showChar('0'+(currentDate.mday % 10),2,0);
 			  showChar('0'+(currentDate.mday / 10),1,0);
 			  showChar('G',0,0);
 				break;
-			case 5:
+			case MENU_MESE:
 			  showChar('0'+(currentDate.mon % 10),2,0);
 			  showChar('0'+(currentDate.mon / 10),1,0);
 			  showChar('N',0,0);			// sembra m minuscola :)
 				break;
-			case 6:
+			case MENU_ANNO:
 			  showChar('0'+(currentDate.year % 10),2,0);
 			  showChar('0'+(currentDate.year / 10),1,0);
 			  showChar('A',0,0);
 				break;
-			case 7:
+			case MENU_SOGLIA:
 			  showNumbers(tempThreshold,1);
-//			  showChar('G',0,0); no...
+				break;
+			case MENU_DIREZIONESOGLIA:
+				if(tempThresholdDirection) {
+				  showChar('H',2,0);
+					}
+				else {
+				  showChar('L',2,0);
+					}
+			  showChar(0,1,0);
+			  showChar('D',0,1);
 				break;
 			}		//inMenu
 
@@ -1118,8 +1187,12 @@ return;*/
 		if(!sw3 && (oldSw & 4)) {
 			Beep();		// tanto per prova!!
 			}
+		if(!sw3)
+			dim=1;		// tanto per prova!!
+		else
+			dim=0;
 
-		if(cnt >= 4   /*150*/) {			// 15 secondi FARE ANCHE 30! QUA meno...
+		if(cnt >= 4   /*150*/) {			// 2 secondi QUA ...
 			cnt=0;
 
 //		T3CONbits.TON=1;
@@ -1137,8 +1210,8 @@ return;*/
 #endif
 
 //			mLED_1=0;
-			if(Temperature != INVALID_READOUT)
-				if(CelsiusFahrenheit) {
+			if(Temperature != INVALID_READOUT) {
+				if(CelsiusFahrenheit)
 					Temperature=((Temperature*9)/5)+320;
 #ifdef USA_TC74 
 				Temperature=(Temperature+oldTemperature)/2;			// arrotondo 0.5
@@ -1151,16 +1224,22 @@ return;*/
 				oldTemperature=((unsigned int)(Temperature/2))*2;
 #elif USA_ANALOG 
 				Temperature=(Temperature+oldTemperature)/2;			// arrotondo 0.5
-				oldTemperature=((unsigned int)(Temperature/2))*2;
-//				oldTemperature=((unsigned int)(Temperature));
+				Temperature=((unsigned int)(Temperature/5))*5;
+				oldTemperature=Temperature;
 #endif
 				if(!tempThresholdDirection)
 					InAlert=Temperature > tempThreshold;
 				else 
 					InAlert=Temperature < tempThreshold;
 	//		T3CONbits.TON=0;
-				if(Buzzer && InAlert)
-					Beep();
+				if(InAlert) {
+					m_Rele=1;
+					if(Buzzer) {
+						Beep();
+						}
+					}
+				else
+					m_Rele=0;
 				}
 
 			}		//1 secondi

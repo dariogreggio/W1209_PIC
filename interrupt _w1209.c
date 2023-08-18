@@ -170,40 +170,36 @@ void interrupt YourHighPriorityISRCode() {		//
 #ifndef OLED
 		LATB= (LATB & 0b10001111) | dividerMux;
 		switch(dividerMux) {
-			case 0b01100000:
-				LATC=Displays[0];
-//LATD=0b00000001;
+			case 0b00110000:
+				LATC=Displays[2];
 				if(dim)
-					dividerMux = 0b11111111;
+					dividerMux = 0b01001111;
 				else
 					dividerMux = 0b01010000;
 				break;
 			case 0b01010000:
 				LATC=Displays[1];
-//				LATD |= 0b10000000;		// dp fisso per ora!
-//LATD=0b00000010;
 				if(dim)
-					dividerMux = 0b11111111;
-				else
-					dividerMux = 0b00110000;
-				break;
-			case 0b00110000:
-				LATC=Displays[2];
-//LATD=0b00000100;
-				if(dim)
-					dividerMux = 0b11111111;
+					dividerMux = 0b01011111;
 				else
 					dividerMux = 0b01100000;
 				break;
+			case 0b01100000:
+				LATC=Displays[0];
+				if(dim)
+					dividerMux = 0b00101111;
+				else
+					dividerMux = 0b00110000;
+				break;
 
-			case 0b01011111:
 			case 0b01001111:
 			case 0b00101111:
+			case 0b01011111:
 				LATBbits.LATB4=1;
 				LATBbits.LATB5=1;
 				LATBbits.LATB6=1;
 				dividerMux++;
-				if(dividerMux > 128)
+				if(dividerMux >= 0b01100000)		// boh
 					dividerMux = 0b01100000;
 				break;
 			default:
@@ -213,19 +209,19 @@ void interrupt YourHighPriorityISRCode() {		//
 
 #define MUX_CORR_STEP 5
 		mux_corr=0;		// correggo tempo mux per dare più tempo se c'è più assorbimento!
-		if(!(LATC & 1))
+		if((LATC & 1))		// catodo comune
 			mux_corr+=MUX_CORR_STEP;
-		if(!(LATC & 2))
+		if((LATC & 2))
 			mux_corr+=MUX_CORR_STEP;
-		if(!(LATC & 4))
+		if((LATC & 4))
 			mux_corr+=MUX_CORR_STEP;
-		if(!(LATC & 8))
+		if((LATC & 8))
 			mux_corr+=MUX_CORR_STEP;
-		if(!(LATC & 16))
+		if((LATC & 16))
 			mux_corr+=MUX_CORR_STEP;
-		if(!(LATC & 32))
+		if((LATC & 32))
 			mux_corr+=MUX_CORR_STEP;
-		if(!(LATC & 64))
+		if((LATC & 64))
 			mux_corr+=MUX_CORR_STEP;
 
 //	m_Led2Bit ^= 1; //check timer	
