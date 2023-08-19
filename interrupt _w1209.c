@@ -269,8 +269,8 @@ void interrupt YourHighPriorityISRCode() {		//
 	tick10++;
 	divider1s++;
 
-	if(divider1s == 5 || divider1s == 10)
-		second_10=1;					// flag; 500mS per debounce migliore!
+	if(!(divider1s & 1)
+		second_10=1;					// flag; 200mS (per debounce migliore!)
 	if(divider1s==10) {		// per RealTimeClock
 		divider1s=0;
 #ifdef USA_SW_RTC 

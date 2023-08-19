@@ -187,7 +187,7 @@ static const rom char CopyrString[]= {'T','e','r','m','o','s','t','a','t','o',' 
 #ifdef USA_USB
 'c','o','n',' ','U','S','B',' ',
 #endif
-	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','1','8','/','0','8','/','2','3', 0 };
+	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','1','9','/','0','8','/','2','3', 0 };
 
 const rom BYTE table_7seg[]={ 0, 	//PGFEDCBA
 													0b00111111,0b00000110,0b01011011,0b01001111,0b01100110,
@@ -272,7 +272,7 @@ USB_HANDLE USBInHandle = 0;
 #endif
 
 
-BYTE InAlert=FALSE,USBOn=FALSE;
+BYTE InAlert=FALSE,USBOn=FALSE,MenuMode=0;
 int Temperature=200,oldTemperature=200,tempThreshold=200;
 extern signed char clock_correction;
 
@@ -296,7 +296,7 @@ volatile unsigned char Displays[3];			// 3 display
 volatile BYTE dim=FALSE;
 BYTE CelsiusFahrenheit=0,tempThresholdDirection=0 /* > */;
 BYTE Buzzer=0;
-WORD logInterval=600 /*decimi*/;
+WORD logInterval=300 /*2 decimi*/;
 static BYTE firstPassDisplay=8;
 volatile WORD tick10=0;
 volatile BYTE second_10=0;
@@ -965,11 +965,11 @@ void prepStatusBuffer(BYTE t) {
 
 void UserTasks(void) {
 	int i;
-	static BYTE inMenu=0,oldSw=7,repeatCounter=0,inMenuTime=0;
+	static BYTE inEdit=0,oldSw=7,repeatCounter=0,inEditTime=0;
 	static WORD cnt=0,cnt2=0;
 
 
-	if(second_10) {			// 1/2 sec qua...
+	if(second_10) {			// 200 mSec qua...
 		second_10=0;
 
 		cnt++;
@@ -1039,88 +1039,110 @@ return;*/
 
 		if(USBOn || !sw1 || !sw2 || !sw3) {
 	ClrWdt();
-			inMenuTime=16;			// 8 sec per timeout
+			inEditTime=40;			// 8 sec per timeout
 			}
 
-		if(!sw1 && (oldSw & 1)) {
-			inMenu++;
-			if(inMenu>MENU_MAX)
-				{
-				char *p=(char *)&currentTime;
-				BYTE i;
-				for(i=0; i<sizeof(currentTime); i++) {
-					EEscrivi_(p,*p);
-					p++;
+		if(!sw2 && (oldSw & 2)) {
+			if(inEdit) {
+				switch(MenuMode) {
+					case 0:
+						break;
+					case MENU_ORA:
+					  currentTime.hour++;
+					  if(currentTime.hour>=24)
+						  currentTime.hour=0;
+						break;
+					case MENU_MINUTI:
+					  currentTime.min++;
+					  if(currentTime.min>=60)
+						  currentTime.min=0;
+						break;
+					case MENU_SECONDI:
+					  currentTime.sec=0;			// direi :)
+						break;
+					case MENU_GIORNO:
+					  currentDate.mday++;
+						i=dayOfMonth[currentDate.mon-1];
+						if((i==28) && !(currentDate.year % 4))
+							i++;
+						if(currentDate.mday > i) 		// (rimangono i secoli...)
+						  currentDate.mday=1;
+						break;
+					case MENU_MESE:
+					  currentDate.mon++;
+					  if(currentDate.mon>=12)
+						  currentDate.mon=1;
+						break;
+					case MENU_ANNO:
+					  currentDate.year++;
+					  if(currentDate.year>=100)
+						  currentDate.year=0;
+						break;
+					case MENU_SOGLIA:
+					  tempThreshold+=10;
+					  if(tempThreshold>=1000)
+						  tempThreshold=-200;
+						break;
+					case MENU_DIREZIONESOGLIA:
+						tempThresholdDirection=!tempThresholdDirection;
+						break;
+					case MENU_MAX:
+salva:
+						{
+						char *p=(char *)&currentTime;
+						BYTE i;
+					  showChar('S',2,1);
+					  showChar('S',1,1);
+					  showChar('S',0,1);
+						for(i=0; i<sizeof(currentTime); i++) {
+							EEscrivi_(p,*p);
+							p++;
+							}
+						p=(char *)&currentDate;
+						for(i=0; i<sizeof(currentDate); i++) {
+							EEscrivi_(p,*p);
+							p++;
+							}
+						p=(char *)&tempThreshold;
+						for(i=0; i<sizeof(tempThreshold); i++) {
+							EEscrivi_(p,*p);
+							p++;
+							}
+						EEscrivi_(tempThresholdDirection,tempThresholdDirection);
+						if(Buzzer)
+							Beep();
+						else
+							Delay_S_(10);
+						MenuMode=0;
+						inEdit=0;
+						}
+						break;
 					}
-				p=(char *)&currentDate;
-				for(i=0; i<sizeof(currentDate); i++) {
-					EEscrivi_(p,*p);
-					p++;
-					}
-				p=(char *)&tempThreshold;
-				for(i=0; i<sizeof(tempThreshold); i++) {
-					EEscrivi_(p,*p);
-					p++;
-					}
-				EEscrivi_(tempThresholdDirection,tempThresholdDirection);
-				inMenu=0;
+				}		// inEdit
+			else {
+				inEdit=1;
+				MenuMode=1;
 				}
-			}
-		if(!sw2) {
+
+			}		// sw2
+		if(!sw1) {
 			repeatCounter++;
-			if((oldSw & 2) || (repeatCounter>4)) {		// x gestire click prolungato
-			switch(inMenu) {
-				case 0:
-					break;
-				case MENU_ORA:
-				  currentTime.hour++;
-				  if(currentTime.hour>=24)
-					  currentTime.hour=0;
-					break;
-				case MENU_MINUTI:
-				  currentTime.min++;
-				  if(currentTime.min>=60)
-					  currentTime.min=0;
-					break;
-				case MENU_SECONDI:
-				  currentTime.sec++;
-				  if(currentTime.sec>=60)
-					  currentTime.sec=0;
-					break;
-				case MENU_GIORNO:
-				  currentDate.mday++;
-					i=dayOfMonth[currentDate.mon-1];
-					if((i==28) && !(currentDate.year % 4))
-						i++;
-					if(currentDate.mday > i) 		// (rimangono i secoli...)
-					  currentDate.mday=1;
-					break;
-				case MENU_MESE:
-				  currentDate.mon++;
-				  if(currentDate.mon>=12)
-					  currentDate.mon=1;
-					break;
-				case MENU_ANNO:
-				  currentDate.year++;
-				  if(currentDate.year>=100)
-					  currentDate.year=0;
-					break;
-				case MENU_SOGLIA:
-				  tempThreshold+=10;
-				  if(tempThreshold>=1000)
-					  tempThreshold=-200;
-					break;
-				case MENU_DIREZIONESOGLIA:
-					tempThresholdDirection=!tempThresholdDirection;
-					break;
+			if((oldSw & 1) || (repeatCounter>4)) {		// x gestire click prolungato
+				MenuMode++;
+				if(MenuMode==MENU_MAX) {
+					MenuMode=0;
+					if(inEdit) {
+						inEdit=0;
+						goto salva;
+						}
+					}
 				}
-			}
-			}		//sw2
+			}		//sw1
 		else {
 			repeatCounter=0;
 			}
 
-		switch(inMenu) {
+		switch(MenuMode) {
 			case 0:
 				if(Temperature != INVALID_READOUT) {
 					if(Temperature > 999)
@@ -1137,32 +1159,32 @@ return;*/
 			case MENU_ORA:
 			  showChar('0'+(currentTime.hour % 10),2,0);
 			  showChar('0'+(currentTime.hour / 10),1,0);
-			  showChar('O',0,0); 
+			  showChar('O',0,inEdit); 
 				break;
 			case MENU_MINUTI:
 			  showChar('0'+(currentTime.min % 10),2,0);
 			  showChar('0'+(currentTime.min / 10),1,0);
-			  showChar('M',0,0);
+			  showChar('M',0,inEdit);
 				break;
 			case MENU_SECONDI:
 			  showChar('0'+(currentTime.sec % 10),2,0);
 			  showChar('0'+(currentTime.sec / 10),1,0);
-			  showChar('S',0,0);
+			  showChar('S',0,inEdit);
 				break;
 			case MENU_GIORNO:
 			  showChar('0'+(currentDate.mday % 10),2,0);
 			  showChar('0'+(currentDate.mday / 10),1,0);
-			  showChar('G',0,0);
+			  showChar('G',0,inEdit);
 				break;
 			case MENU_MESE:
 			  showChar('0'+(currentDate.mon % 10),2,0);
 			  showChar('0'+(currentDate.mon / 10),1,0);
-			  showChar('N',0,0);			// sembra m minuscola :)
+			  showChar('N',0,inEdit);			// sembra m minuscola :)
 				break;
 			case MENU_ANNO:
 			  showChar('0'+(currentDate.year % 10),2,0);
 			  showChar('0'+(currentDate.year / 10),1,0);
-			  showChar('A',0,0);
+			  showChar('A',0,inEdit);
 				break;
 			case MENU_SOGLIA:
 			  showNumbers(tempThreshold,1);
@@ -1175,13 +1197,18 @@ return;*/
 				  showChar('L',2,0);
 					}
 			  showChar(0,1,0);
-			  showChar('D',0,1);
+			  showChar('D',0,inEdit);
 				break;
-			}		//inMenu
+			}		//inEdit
 
-		if(inMenuTime) {
-			if(!--inMenuTime)
-				inMenu=0;
+		if(inEditTime) {
+			if(!--inEditTime) {
+				MenuMode=0;
+				if(inEdit) {
+					inEdit=0;
+					goto salva;
+					}
+				}
 			}
 
 		if(!sw3 && (oldSw & 4)) {
@@ -1192,7 +1219,7 @@ return;*/
 		else
 			dim=0;
 
-		if(cnt >= 4   /*150*/) {			// 2 secondi QUA ...
+		if(cnt >= 10   /*150*/) {			// 2 secondi QUA ...
 			cnt=0;
 
 //		T3CONbits.TON=1;
@@ -1228,10 +1255,9 @@ return;*/
 				oldTemperature=Temperature;
 #endif
 				if(!tempThresholdDirection)
-					InAlert=Temperature > tempThreshold;
+					InAlert=Temperature > tempThreshold;			// vale fahrenheit o celsius a seconda!
 				else 
 					InAlert=Temperature < tempThreshold;
-	//		T3CONbits.TON=0;
 				if(InAlert) {
 					m_Rele=1;
 					if(Buzzer) {
@@ -1283,7 +1309,7 @@ return;*/
 
 		if(!USBOn) {
 //		__delay_ms(200);
-//			inMenu=0;
+//			inEdit=0;
 //			oldSw=7;
 	ClrWdt();
 

@@ -57,6 +57,7 @@ void __delay_ms(BYTE mSec);
 #if !defined(__18CXX)
 #define rom
 #endif
+void Delay_S_(BYTE );				// circa n*100mSec
 
 	
 #define DELAY_SPI_FAST 5
