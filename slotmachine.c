@@ -83,19 +83,25 @@ Dedicato alla dolce guerra :) (il nasdaq muore, le atomiche arrivano...)
 
 #pragma romdata
 static rom const char CopyrString[]= {'C','y','b','e','r','d','y','n','e',' ','(','A','D','P','M',')',' ','-',' ','G','i','o','c','h','i','n','i',' ','7','s','e','g',' ',
-	VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','2','8','/','0','8','/','2','3', 0 };
+	VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','3','0','/','0','8','/','2','3', 0 };
 
 const rom BYTE table_7seg[]={0, // .GFEDCBA
 															0b00111111,0b00000110,0b01011011,0b01001111,0b01100110,
 												 			0b01101101,0b01111101,0b00000111,0b01111111,0b01101111,
 															0b01000000,			// il segno meno...
+
+													0b01110111,0b01111100,0b00111001,0b01011110,0b01111001,0b01110001,	//A..F
+													0b00111101,0b01110110,0b00110000,0b00001110,0b01110110,0b00111000,	//G..L
+													0b00110111,0b01010100,0b01011100,0b01110011,0b01100111,0b01010000,	//M..R (o piccola per distinguere)
+													0b01101101,0b01111000,0b00111110,0b00011100,0b10011100,0b00110110,	//S..X
+													0b01101110,0b01011011,		//Y..Z
 //slot
-															0b01001001,			// no palle; 12
+															0b01001001,			// no palle; 12+26
 															0b01101011,			// palla alta
 															0b01011101,			// palla bassa
 															0b01111111,			// due palle
 //dadi
-															0b01000000,			// 1; 16
+															0b01000000,			// 1; 16+26
 															0b00001001,			// 2
 															0b01001001,			// 3
 															0b00110110,			// 4
@@ -120,12 +126,22 @@ const rom char data7=0x00u;
 BYTE first=BASE_FIRST;
 
 BYTE gameMode=0;
-BYTE tipoGioco=0;		//0=Slot, 1=Dadi, 2=tombola, 3=cascade, 4=auto, 5=atterraggio, 6=sette e mezzo
-#define MAX_GIOCHI 7
+enum GIOCHI {
+	GIOCO_SLOT=0,
+	GIOCO_DADI,
+	GIOCO_TOMBOLA,
+	GIOCO_CASCADE,
+	GIOCO_AUTO,
+	GIOCO_RAZZO,
+	GIOCO_SETTEMEZZO
+	};
+#define MAX_GIOCHI GIOCO_SETTEMEZZO
+enum GIOCHI tipoGioco=GIOCO_SLOT;		//0=Slot, 1=Dadi, 2=tombola, 3=cascade, 4=auto, 5=atterraggio, 6=sette e mezzo
 BYTE durataGioco,durataGioco2;
 WORD Punti,totPunti;
 BYTE posPlayer=1;
 WORD mazzoDiCarte[4];		// 1bit per carta estratta, 10 opp. 13 x 4
+BYTE numeriLotto[12];		// 90bit 
 
 
 
@@ -455,7 +471,7 @@ void UserInit(void) {
 
 BYTE dividerT;
 void handle_events(void) {
-	static BYTE oldPuls1Bit=3,timePressed1;
+	static BYTE oldPulsBit=3,timePressed1;
 	WORD n;
 
 	ClrWdt();
@@ -465,200 +481,275 @@ void handle_events(void) {
 		if(first)
 			return;
 	
-		if(!sw2) {
-			if(oldPuls1Bit & 2) {
-//				SetBeep(2);		// tanto per...
-	
-				}
-
-			switch(tipoGioco) {
-				case 0:
-					break;
-				case 1:
-					break;
-				case 2:
-					break;
-				case 3:
-					if(gameMode==3)
-						if(posPlayer<2)
-							posPlayer++;
-					break;
-				case 4:
-					if(gameMode==3)
-						if(posPlayer<2)
-							posPlayer++;
-					break;
-				case 5:
-					if(gameMode==3)
-						if(durataGioco>0)
-							durataGioco-=3;		// lo tratto come signed
-// gestire carburante??
-					break;
-				case 6:
-					if(gameMode==3) {		// fine giocate
-						gameMode=4;
-						}
-					break;
-				}
-
-			if(!sw1 && gameMode<=1) {		// solo se gioco fermo!
-				StdBeep();		// 
-				totPunti=0;
-				gameMode=1;
+		if(!sw1) {
+			if(oldPulsBit & 1) {
+				timePressed1=0;
 				switch(tipoGioco) {
-					case 0:
-						EEscrivi_(&totPunti,LOBYTE(totPunti));
-						EEscrivi_(1+&totPunti,HIBYTE(totPunti));
+					case GIOCO_SLOT:
+						if(gameMode<2) {
+							gameMode=2;
+							dividerT=0;
+							}
 						break;
-					case 1:
+					case GIOCO_DADI:
+						if(gameMode<2) {
+							gameMode=2;
+							dividerT=0;
+							}
 						break;
-					case 2:
+					case GIOCO_TOMBOLA:
+						if(gameMode<2) {
+							gameMode=2;
+							dividerT=0;
+							}
 						break;
-					case 3:
+					case GIOCO_CASCADE:
+						if(gameMode<2) {
+							gameMode=2;
+							dividerT=0;
+							}
+						if(gameMode==3)
+							if(posPlayer>0 /*&& dividerUI & 1*/)
+								posPlayer--;
 						break;
-					case 4:
+					case GIOCO_AUTO:
+						if(gameMode<2) {
+							gameMode=2;
+							dividerT=0;
+							}
+						if(gameMode==3)
+							if(posPlayer>0 /*&& dividerUI & 1*/)
+								posPlayer--;
 						break;
-					case 5:
+					case GIOCO_RAZZO:
+						if(gameMode<2) {
+							gameMode=2;
+							dividerT=0;
+							}
 						break;
-					case 6:
+					case GIOCO_SETTEMEZZO:
+						if((!durataGioco && gameMode==2) || (durataGioco && gameMode==3)) {		// pesco carta (a seconda se ha iniziato banco o giocatore
+							BYTE i;
+	
+							i=estraiCarta40();
+							if(i==10+10-1)		// matta, re di quadri/denari!
+								Punti=75;
+							else
+								Punti+=getPuntiDaCarta40(i);
+							showCarta(i);
+//							dMode=1;
+	
+							if(Punti>durataGioco2 || Punti>75) {
+								dividerT=0;
+								gameMode=4;
+								}
+	
+							}
+						if(gameMode<2) { // dopo!
+							gameMode=2;
+							dividerT=0;
+while(!sw1)		// qua meglio aspettare rilascio..
+	ClrWdt();
+}
 						break;
 					}
-				dMode=1;
-				Displays[2][1] = 0b00001000;
-				showAllNumbers(totPunti,0);
-				while(!sw1)			// debounce per evitare che lo prenda sotto!
-					ClrWdt();
-				Displays[2][1] = 0b00000000;
 				}
-
-			oldPuls1Bit &= ~2;
-			}
-		else {
-	
-//			Displays[2] &= ~0b01111001;
-			oldPuls1Bit |= 2;
-			}
-
-		if(!sw1) {
-			if(oldPuls1Bit & 1) {
-				timePressed1=0;
-				}
-			switch(tipoGioco) {
-				case 0:
-					if(gameMode<2)
-						gameMode=2;
-					break;
-				case 1:
-					if(gameMode<2)
-						gameMode=2;
-					break;
-				case 2:
-					if(gameMode<2)
-						gameMode=2;
-					break;
-				case 3:
-					if(gameMode==3)
-						if(posPlayer>0)
-							posPlayer--;
-					break;
-				case 4:
-					if(gameMode==3)
-						if(posPlayer>0)
-							posPlayer--;
-					break;
-				case 5:
-					if(gameMode==3)
-						if(durataGioco>0)
-							durataGioco-=3;		// lo tratto come signed
-// gestire carburante??
-					break;
-				case 6:
-					break;
-				}
-
-			oldPuls1Bit &= ~1;
-			}
-		else {
-			if(!(oldPuls1Bit & 1)) {
+			else {
 				switch(tipoGioco) {
-					case 0:
-						if(gameMode<3) {
-							gameMode=3;
-							durataGioco=durataGioco2=(timePressed1*2) + (rand() & 7) + 5;
-		//					durataGioco=durataGioco2=20;
-							if(timePressed1<30)			// 3 secondi max
-								timePressed1++;
-						//	else si potrebbe innescare lancio cmq!
-							}
+					case GIOCO_SLOT:
 						break;
-					case 1:
-						if(gameMode<3) {
-							gameMode=3;
-							durataGioco=durataGioco2=(timePressed1*2) + (rand() & 7) + 5;
-		//					durataGioco=durataGioco2=20;
-							if(timePressed1<30)			// 3 secondi max
-								timePressed1++;
-						//	else si potrebbe innescare lancio cmq!
-							}
+					case GIOCO_DADI:
 						break;
-					case 2:
-						if(gameMode<3) {
-							gameMode=3;
-							durataGioco=durataGioco2=(timePressed1*2) + (rand() & 7) + 5;
-		//					durataGioco=durataGioco2=20;
-							if(timePressed1<30)			// 3 secondi max
-								timePressed1++;
-						//	else si potrebbe innescare lancio cmq!
-							}
+					case GIOCO_TOMBOLA:
 						break;
-					case 3:
-						if(gameMode<2)
-							gameMode=2;
+					case GIOCO_CASCADE:
 						break;
-					case 4:
-						if(gameMode<2) 
-							gameMode=2;
+					case GIOCO_AUTO:
 						break;
-					case 5:
-						if(gameMode<2) 
-							gameMode=2;
+					case GIOCO_RAZZO:
+						if(gameMode==3)
+							if((signed char)durataGioco>-50)
+								durataGioco-=3;		// lo tratto come signed
+	// gestire carburante??
 						break;
-					case 6:
-						if(gameMode==3) {
-							BYTE i;
+					case GIOCO_SETTEMEZZO:
+						break;
+					}
+				}
 
-									i=estraiCarta40();
-									Punti+=getPuntiDaCarta40(i);
-									showCarta(i);
-									showNumbers(Punti,1);
-									dMode=1;
+			oldPulsBit &= ~1;
+			}
+		else {
+			if(!(oldPulsBit & 1)) {
+				switch(tipoGioco) {
+					case GIOCO_SLOT:
+						if(gameMode<3) {
+							gameMode=3;
+							durataGioco=durataGioco2=(timePressed1*2) + (rand() & 7) + 5;
+		//					durataGioco=durataGioco2=20;
+							if(timePressed1<30)			// 3 secondi max
+								timePressed1++;
+						//	else si potrebbe innescare lancio cmq!
+							}
+						break;
+					case GIOCO_DADI:
+						if(gameMode<3) {
+							gameMode=3;
+							durataGioco=durataGioco2=(timePressed1*2) + (rand() & 7) + 5;
+		//					durataGioco=durataGioco2=20;
+							if(timePressed1<30)			// 3 secondi max
+								timePressed1++;
+						//	else si potrebbe innescare lancio cmq!
+							}
+						break;
+					case GIOCO_TOMBOLA:
+						if(gameMode<3) {
+							gameMode=3;
+							durataGioco=durataGioco2=(timePressed1*2) + (rand() & 7) + 5;
+		//					durataGioco=durataGioco2=20;
+							if(timePressed1<30)			// 3 secondi max
+								timePressed1++;
+						//	else si potrebbe innescare lancio cmq!
+							}
+						break;
+					case GIOCO_CASCADE:
+						break;
+					case GIOCO_AUTO:
+						break;
+					case GIOCO_RAZZO:
+						break;
+					case GIOCO_SETTEMEZZO:
+						break;
+					}
+				}
+			oldPulsBit |= 1;
+			}
 
+		if(!sw2) {
+			if(oldPulsBit & 2) {
+//				SetBeep(2);		// tanto per...
+				switch(tipoGioco) {
+					case GIOCO_SLOT:
+						break;
+					case GIOCO_DADI:
+						break;
+					case GIOCO_TOMBOLA:
+						break;
+					case GIOCO_CASCADE:
+						if(gameMode==3)
+							if(posPlayer<2 /*&& dividerUI & 1*/)
+								posPlayer++;
+						break;
+					case GIOCO_AUTO:
+						if(gameMode==3)
+							if(posPlayer<2 /*&& dividerUI & 1*/)
+								posPlayer++;
+						break;
+					case GIOCO_RAZZO:
+						break;
+					case GIOCO_SETTEMEZZO:
+						if(gameMode>=2) {		// fine giocate (sia se inizia giocatore sia banco
+							dividerT=0;
 							gameMode=4;
 							}
 						break;
 					}
 				}
-			oldPuls1Bit |= 1;
-			}
-
-
-		if(!sw3) {
-			if(oldPuls1Bit & 4) {
-				if(gameMode<2) {		// solo se gioco fermo!
-
-				tipoGioco++;
-				if(tipoGioco>=MAX_GIOCHI)
-					tipoGioco=0;
-					dividerT=24;		// forza scritta aggiornata
+			else {
+				switch(tipoGioco) {
+					case GIOCO_SLOT:
+						break;
+					case GIOCO_DADI:
+						break;
+					case GIOCO_TOMBOLA:
+						break;
+					case GIOCO_CASCADE:
+						break;
+					case GIOCO_AUTO:
+						break;
+					case GIOCO_RAZZO:
+						if(gameMode==3)
+							if((signed char)durataGioco>-50)
+								durataGioco-=3;		// lo tratto come signed
+	// gestire carburante??
+						break;
+					case GIOCO_SETTEMEZZO:
+						break;
 					}
 				}
 
-			oldPuls1Bit &= ~4;
+			if(!sw1 && gameMode<=1) {		// 2 tasti insieme = reset game (solo se gioco fermo!
+				StdBeep();		// 
+				totPunti=0;
+				gameMode=1;
+				switch(tipoGioco) {
+					case GIOCO_SLOT:
+						EEscrivi_(&totPunti,LOBYTE(totPunti));
+						EEscrivi_(1+&totPunti,HIBYTE(totPunti));
+						break;
+					case GIOCO_DADI:
+						break;
+					case GIOCO_TOMBOLA:
+						break;
+					case GIOCO_CASCADE:
+						break;
+					case GIOCO_AUTO:
+						break;
+					case GIOCO_RAZZO:
+						break;
+					case GIOCO_SETTEMEZZO:
+						break;
+					}
+				dMode=1;
+				Displays[2][1] = 0b00001000;
+				showNumbers(totPunti,0);
+				while(!sw1)			// debounce per evitare che lo prenda sotto!
+					ClrWdt();
+				Displays[2][1] = 0b00000000;
+				}
+
+			oldPulsBit &= ~2;
 			}
 		else {
-			if(!(oldPuls1Bit & 4)) {
+			oldPulsBit |= 2;
+			}
+
+		if(!sw3) {
+			if(oldPulsBit & 4) {
+				if(gameMode<2) {		// solo se gioco fermo!
+					tipoGioco++;
+					if(tipoGioco>=MAX_GIOCHI)
+						tipoGioco=GIOCO_SLOT;
+					dividerT=24;		// forza scritta aggiornata
+					}
+				else {
+					switch(tipoGioco) {
+						case GIOCO_SLOT:
+							break;
+						case GIOCO_DADI:
+							break;
+						case GIOCO_TOMBOLA:
+							azzeraLotto();		// fare... per unicità estrazioni
+							break;
+						case GIOCO_CASCADE:
+							gameMode=4;
+							dividerT=0;
+							break;
+						case GIOCO_AUTO:
+							break;
+						case GIOCO_RAZZO:
+							break;
+						case GIOCO_SETTEMEZZO:
+							break;
+						}
+					}
 				}
-			oldPuls1Bit |= 4;
+			oldPulsBit &= ~4;
+			}
+		else {
+			if(!(oldPulsBit & 4)) {
+				}
+			oldPulsBit |= 4;
 			}
 
 	}
@@ -716,67 +807,67 @@ void updateUI(void) {
 		case 0:		// demo/fermo
 			dMode=0;
 			switch(dividerT) {
-				case 0:
-				case 10:
-					Displays[0][0] = 0b00000001;
-					Displays[1][0] = 0b00000000;
-					Displays[2][0] = 0b00000000;
-					break;
+				case 0:// non accade mai :)
 				case 1:
 				case 11:
-					Displays[0][0] = 0b00000000;
-					Displays[1][0] = 0b00000001;
+					Displays[0][0] = 0b00000001;
+					Displays[1][0] = 0b00000000;
 					Displays[2][0] = 0b00000000;
 					break;
 				case 2:
 				case 12:
 					Displays[0][0] = 0b00000000;
-					Displays[1][0] = 0b00000000;
-					Displays[2][0] = 0b00000001;
+					Displays[1][0] = 0b00000001;
+					Displays[2][0] = 0b00000000;
 					break;
 				case 3:
 				case 13:
 					Displays[0][0] = 0b00000000;
 					Displays[1][0] = 0b00000000;
-					Displays[2][0] = 0b00000010;
+					Displays[2][0] = 0b00000001;
 					break;
 				case 4:
 				case 14:
 					Displays[0][0] = 0b00000000;
 					Displays[1][0] = 0b00000000;
-					Displays[2][0] = 0b00000100;
+					Displays[2][0] = 0b00000010;
 					break;
 				case 5:
 				case 15:
 					Displays[0][0] = 0b00000000;
 					Displays[1][0] = 0b00000000;
-					Displays[2][0] = 0b00001000;
+					Displays[2][0] = 0b00000100;
 					break;
 				case 6:
 				case 16:
 					Displays[0][0] = 0b00000000;
-					Displays[1][0] = 0b00001000;
-					Displays[2][0] = 0b00000000;
+					Displays[1][0] = 0b00000000;
+					Displays[2][0] = 0b00001000;
 					break;
 				case 7:
 				case 17:
-					Displays[0][0] = 0b00001000;
-					Displays[1][0] = 0b00000000;
+					Displays[0][0] = 0b00000000;
+					Displays[1][0] = 0b00001000;
 					Displays[2][0] = 0b00000000;
 					break;
 				case 8:
 				case 18:
-					Displays[0][0] = 0b00010000;
+					Displays[0][0] = 0b00001000;
 					Displays[1][0] = 0b00000000;
 					Displays[2][0] = 0b00000000;
 					break;
 				case 9:
 				case 19:
+					Displays[0][0] = 0b00010000;
+					Displays[1][0] = 0b00000000;
+					Displays[2][0] = 0b00000000;
+					break;
+				case 10:
+				case 20:
 					Displays[0][0] = 0b00100000;
 					Displays[1][0] = 0b00000000;
 					Displays[2][0] = 0b00000000;
 					break;
-				case 20:
 				case 21:
 				case 22:
 				case 23:
@@ -785,9 +876,7 @@ void updateUI(void) {
 				case 26:
 				case 27:
 				case 28:
-					Displays[0][0] = 0b01110011;		// PLy
-					Displays[1][0] = 0b00111000;
-					Displays[2][0] = 0b01101110;
+					showText("PLY");
 					break;
 				case 29:
 				case 31:
@@ -807,40 +896,26 @@ void updateUI(void) {
 				case 36:
 				case 37:
 					switch(tipoGioco) {
-						case 0:
-							Displays[0][0] = 0b01101101;		// SLO
-							Displays[1][0] = 0b00111000;
-							Displays[2][0] = 0b00111111;
+						case GIOCO_SLOT:
+							showText("SLO");
 							break;
-						case 1:
-							Displays[0][0] = 0b01011110;		// dAd
-							Displays[1][0] = 0b01110111;
-							Displays[2][0] = 0b01011110;
+						case GIOCO_DADI:
+							showText("DAD");
 							break;
-						case 2:
-							Displays[0][0] = 0b01111000;		// tom
-							Displays[1][0] = 0b01011100;
-							Displays[2][0] = 0b01010100;
+						case GIOCO_TOMBOLA:
+							showText("TOM");
 							break;
-						case 3:
-							Displays[0][0] = 0b00111001;		// CAS
-							Displays[1][0] = 0b01110111;
-							Displays[2][0] = 0b01101101;
+						case GIOCO_CASCADE:
+							showText("CAS");
 							break;
-						case 4:
-							Displays[0][0] = 0b01110111;		// AUt
-							Displays[1][0] = 0b00111110;
-							Displays[2][0] = 0b01111000;
+						case GIOCO_AUTO:
+							showText("AUT");
 							break;
-						case 5:
-							Displays[0][0] = 0b01101101;		// SPC
-							Displays[1][0] = 0b01110011;
-							Displays[2][0] = 0b00111001;
+						case GIOCO_RAZZO:
+							showText("SPC");
 							break;
-						case 6:
-							Displays[0][0] = 0b00000111;		// 712
-							Displays[1][0] = 0b00000110;
-							Displays[2][0] = 0b01011011;
+						case GIOCO_SETTEMEZZO:
+							showText("712");
 							break;
 						}
 					break;
@@ -862,38 +937,39 @@ void updateUI(void) {
 				case 46:
 				case 48:
 					switch(tipoGioco) {
-						case 0:
+						case GIOCO_SLOT:
 #warning mettere random figure slot
 							Displays[0][0] = 0b00000000;
 							Displays[1][0] = 0b00000000;
 							Displays[2][0] = 0b00000000;
 							break;
-						case 1:
+						case GIOCO_DADI:
 							Displays[0][0] = 0b00111111;
 							Displays[1][0] = 0b01000000;
 							Displays[2][0] = 0b00111111;
 							break;
-						case 2:
+						case GIOCO_TOMBOLA:
 							Displays[0][0] = 0b00111111;
 							Displays[1][0] = 0b01101111;
 							Displays[2][0] = 0b00111111;
 							break;
-						case 3:
+						case GIOCO_CASCADE:
 							Displays[0][0] = 0b00001000;
 							Displays[1][0] = 0b00001000;
 							Displays[2][0] = 0b00001000;
 							break;
-						case 4:
+						case GIOCO_AUTO:
 							Displays[0][0] = 0b00000000;
 							Displays[1][0] = 0b00001000;
 							Displays[2][0] = 0b00000000;
 							break;
-						case 5:
+						case GIOCO_RAZZO:
 							Displays[0][0] = 0b00000001;		// linea a scendere
 							Displays[1][0] = 0b01000000;
 							Displays[2][0] = 0b00001000;
 							break;
-						case 6:
+						case GIOCO_SETTEMEZZO:
+//							showText("CQF");
 							Displays[0][0] = 0b00111001;		// Come Quando Fuori :)
 							Displays[1][0] = 0b01100111;
 							Displays[2][0] = 0b01110001;
@@ -922,30 +998,30 @@ void updateUI(void) {
 		case 1:		// demo/punti
 			dMode=1;
 			switch(tipoGioco) {
-				case 0:
-					showAllNumbers(totPunti,0);
+				case GIOCO_SLOT:
+					showNumbers(totPunti,0);
 					break;
-				case 1:
+				case GIOCO_DADI:
 
 			dividerT=12;
 					break;
-				case 2:
+				case GIOCO_TOMBOLA:
 
 			dividerT=12;
 					break;
-				case 3:
+				case GIOCO_CASCADE:
 
-					showAllNumbers(durataGioco,0);		// bah astronavi
+					showNumbers(durataGioco,0);		// bah astronavi
 					break;
-				case 4:
+				case GIOCO_AUTO:
 
-					showAllNumbers(durataGioco,0);		// bah tempo residuo
+					showNumbers(durataGioco,0);		// bah tempo residuo
 					break;
-				case 5:
+				case GIOCO_RAZZO:
 
-					showAllNumbers(durataGioco2,0);		// bah carburante residuo o tempo impiegato
+					showNumbers(durataGioco2,0);		// bah carburante residuo o tempo impiegato
 					break;
-				case 6:
+				case GIOCO_SETTEMEZZO:
 					break;
 				}
 			if(dividerT>=12) {
@@ -958,7 +1034,7 @@ void updateUI(void) {
 			dMode=0;
 			switch(tipoGioco) {
 				BYTE n;
-				case 0:
+				case GIOCO_SLOT:
 					n=dividerT % 3;
 					switch(n) {
 		/*				case 0:
@@ -993,7 +1069,7 @@ void updateUI(void) {
 							break;
 						}
 					break;
-				case 1:
+				case GIOCO_DADI:
 					n=dividerT & 1;
 					switch(n) {
 						case 0:
@@ -1008,11 +1084,16 @@ void updateUI(void) {
 							break;
 						}
 					break;
-				case 2:
-					showNumbers((rand() % 89)+1,0);
-					dMode=1;
+				case GIOCO_TOMBOLA:
+					i=pescaNumeroLotto();
+					if((signed char)i>0) {
+						showNumbers(i,0);
+						dMode=1;
+						}
+					else
+						showText("FIN");
 					break;
-				case 3:
+				case GIOCO_CASCADE:
 					Displays[0][0] = 0b00000000;
 					Displays[1][0] = 0b00000000;
 					Displays[2][0] = 0b00000000;
@@ -1023,18 +1104,18 @@ void updateUI(void) {
 						dividerT=0;
 						}
 					break;
-				case 4:
+				case GIOCO_AUTO:
 					Displays[0][0] = 0b00000000;
 					Displays[1][0] = 0b00000000;
 					Displays[2][0] = 0b00000000;
-					durataGioco=90     *2;		// secondi
+					durataGioco=90;		// secondi
 					posPlayer=1;
 					if(dividerT > 5) {
 						gameMode=3;
 						dividerT=0;
 						}
 					break;
-				case 5:
+				case GIOCO_RAZZO:
 					Punti=900;		// metri
 					durataGioco=0;
 					durataGioco2=0;
@@ -1045,48 +1126,63 @@ void updateUI(void) {
 						dividerT=0;
 						}
 					break;
-				case 6:
+				case GIOCO_SETTEMEZZO:
 					switch(dividerT) {
-						case 0:
+						case 1:
 							Punti=0;		// 
 							durataGioco=0;		// se banco o giocatore prima
 							durataGioco2=0;
 							break;
-						case 1:
+						case 2:
 							mischiaMazzo();		// tutto finto :D quasi
-							showNumbers((rand() % 52 /*40*/)+1,0);
+							showNumbers((rand() % /*52*/ 40)+1,0);		// tanto per..
 							dMode=1;
 							break;
 						case 10:
 							durataGioco=rand() & 1;
 							if(durataGioco) {
-								Displays[0][0] = 0b00110000;		// Io
-								Displays[1][0] = 0b01011100;
-								Displays[2][0] = 0b00000000;
+								showText("IO");
 								}
 							else {
-								Displays[0][0] = 0b01111000;		// tU
-								Displays[1][0] = 0b00111110;
-								Displays[2][0] = 0b00000000;
-								}
-							break;
-						case 20:
-							if(durataGioco) {
-								if(Punti < 50 || (Punti < 70 && rand()<5000)) {		// strategia diciamo :)
-									i=estraiCarta40();
-									Punti+=getPuntiDaCarta40(i);
-									showCarta(i);
-									}
-								else {
-									showNumbers(Punti,1);
-									dMode=1;
-									}
+								showText("TU");
 								}
 							break;
 						case 30:
-							dividerT=19;
+							if(durataGioco) {
+								if(durataGioco2 <= 50 || (durataGioco2 <= 70 && rand()<5000)) {		// strategia diciamo :)
+									i=estraiCarta40();
+									if(i==10+10-1)		// matta, re di quadri/denari!
+										durataGioco2=75;
+									else
+										durataGioco2+=getPuntiDaCarta40(i);
+									showCarta(i);
+									}
+								else {
+//									showNumbers(durataGioco2,1);
+//									dMode=1;
+									dividerT=51;
+									showText("TU");
+									}
+								}
+							else {
+								if(dividerT & 4) {		// mostro carta
+									Displays[2][0] |= 0b10000000;		// indica attesa giocatore :)
+									}
+								else {	// alterno con punti
+									showNumbers(Punti,1);
+									dMode=1;
+									Displays[2][0] &= ~0b10000000;		// indica attesa giocatore :)
+									}
+								}
 							break;
 						case 40:
+							showNumbers(durataGioco2,1);
+							dMode=1;
+							break;
+						case 50:
+							dividerT=29;
+							break;
+						case 70:
 							gameMode=3;
 							dividerT=0;
 							break;
@@ -1099,7 +1195,7 @@ void updateUI(void) {
 			dMode=0;
 			switch(tipoGioco) {
 				BYTE n;
-				case 0:
+				case GIOCO_SLOT:
 					if(durataGioco2) {
 						if(durataGioco2>=20)
 							n=1;
@@ -1127,7 +1223,7 @@ void updateUI(void) {
 						}
 					break;
 
-				case 1:
+				case GIOCO_DADI:
 					if(durataGioco2) {
 						if(durataGioco2>=20)
 							n=1;
@@ -1154,7 +1250,7 @@ void updateUI(void) {
 						}
 					break;
 
-				case 2:			// qua si potrebbe anche cambiare/semplificare...
+				case GIOCO_TOMBOLA:			// qua si potrebbe anche cambiare/semplificare...
 					if(durataGioco2) {
 						if(durataGioco2>=20)
 							n=1;
@@ -1183,7 +1279,7 @@ void updateUI(void) {
 						}
 					break;
 
-				case 3:
+				case GIOCO_CASCADE:
 					Displays[0][0] &= ~0b10001000;			// pulisco astronave 
 					Displays[1][0] &= ~0b10001000;
 					Displays[2][0] &= ~0b10001000;
@@ -1245,7 +1341,7 @@ void updateUI(void) {
 						}
 					break;
 
-				case 4:
+				case GIOCO_AUTO:
 					Displays[0][0] &= ~0b00001000;
 					Displays[1][0] &= ~0b00001000;
 					Displays[2][0] &= ~0b00001000;
@@ -1362,34 +1458,49 @@ void updateUI(void) {
 						case 1:			// strada stretta sx
 							if(posPlayer==0 || posPlayer==1) 			// 
 								Punti++;
+							else
+								goto fuori_strada;
 							break;
 						case 2:			// strada stretta dx
 							if(posPlayer==1 || posPlayer==2) 			// 
 								Punti++;
+							else
+								goto fuori_strada;
 							break;
 						case 3:			// strada strettissima sx
 							if(posPlayer==0) 			// 
 								Punti++;
+							else
+								goto fuori_strada;
 							break;
 						case 4:			// strada strettissima centro
 							if(posPlayer==1) 			// 
 								Punti++;
+							else
+								goto fuori_strada;
 							break;
 						case 5:			// strada strettissima dx
 							if(posPlayer==2) 			// 
 								Punti++;
+							else {
+fuori_strada:
+								Displays[0][0] &= ~0b10000000;			// indico fuori strada
+								Displays[2][0] &= ~0b10000000;
+								}
 							break;
 						}
 
-					durataGioco--;
+					if(!(dividerT & 3))		// secondi, circa
+						durataGioco--;
 					if(!durataGioco) {
 						gameMode=4;
 						dividerT=0;
 						}
 					break;
 
-				case 5:
-					durataGioco+=1;		// 0.98 ossia 9.8m/s in 100mS
+				case GIOCO_RAZZO:
+					if((signed char)durataGioco<100)
+						durataGioco+=1;		// 0.98 ossia 9.8m/s in 100mS
 					if(Punti>durataGioco)
 						Punti-=(signed char)durataGioco;
 					else
@@ -1403,26 +1514,20 @@ void updateUI(void) {
 						}
 
 					if(Punti>=1000) {
-						Displays[0][0] = 0b00111111;		// OUt
-						Displays[1][0] = 0b00111110;
-						Displays[2][0] = 0b01111000;
+						showText("OUT");
 						ErrorBeep();
 						gameMode=4;
 						}
 					else if(Punti>5) {
-						durataGioco2++;
+						durataGioco2++;		// occhio va in overflow... dividere...
 						}
 					else {
 						if((signed char)durataGioco<5) {
-							Displays[0][0] = 0b00111111;		// OK :)
-							Displays[1][0] = 0b01110110;
-							Displays[2][0] = 0b00000000;
+							showText("OK");
 							StdBeep();
 							}
 						else {
-							Displays[0][0] = 0b00111001;		// CrS
-							Displays[1][0] = 0b01010000;
-							Displays[2][0] = 0b01101101;
+							showText("CRS");
 							ErrorBeep();
 							}
 						gameMode=4;
@@ -1430,15 +1535,39 @@ void updateUI(void) {
 						}
 					break;
 
-				case 6:
-					switch(dividerT) {
-						case 0:
-							break;
-						case 1:
-							break;
+				case GIOCO_SETTEMEZZO:
+					if(!durataGioco) {
+						if(dividerT>7) {		// mostro carta
+							dividerT=0;
+							if(durataGioco2 <= 50 || (durataGioco2 <= 70 && rand()<5000)) {		// strategia diciamo :)
+								i=estraiCarta40();
+								if(i==10+10-1)		// matta, re di quadri/denari!
+									durataGioco2=75;
+								else
+									durataGioco2+=getPuntiDaCarta40(i);
+								showCarta(i);
+								if(Punti>75)			// se giocatore ha sballato, esco subito!
+									gameMode=4;
+								}
+							else {
+								gameMode=4;
+								}
+							}
+						else if(dividerT>3) {	// alterno con punti
+							showNumbers(Punti,1);
+							dMode=1;
+							}
 						}
-					if(dividerT>3) {
-						Displays[2][0] ^= 0b10000000;		// indica attesa giocatore :)
+					else {
+						if(dividerT>7) {		// mostro carta
+							Displays[2][0] ^= 0b10000000;		// indica attesa giocatore :)
+							dividerT=0;
+							}
+						else if(dividerT>3) {	// alterno con punti
+							showNumbers(Punti,1);
+							dMode=1;
+							Displays[2][0] ^= 0b10000000;		// indica attesa giocatore :)
+							}
 						}
 					break;
 				}
@@ -1448,7 +1577,7 @@ void updateUI(void) {
 			dMode=1;
 			if(dividerT == 1) {
 				switch(tipoGioco) {
-					case 0:
+					case GIOCO_SLOT:
 						Punti=getPuntiDaDisplay();
 						showNumbers(Punti,0);
 						totPunti += Punti;
@@ -1457,27 +1586,35 @@ void updateUI(void) {
 //							EEscrivi_(1+&totPunti,HIBYTE(totPunti));
 							}
 						break;
-					case 1:
+					case GIOCO_DADI:
 						Punti=getPuntiDaDisplay();
 						showNumbers(Punti,0);
 						break;
-					case 2:
+					case GIOCO_TOMBOLA:
 //						Punti=getPuntiDaDisplay();
 //						showNumbers(Punti,0);
 // a posto così
 						StdBeep();
 						break;
-					case 3:
+					case GIOCO_CASCADE:
 						showNumbers(Punti,0);
 						break;
-					case 4:
+					case GIOCO_AUTO:
 						showNumbers(Punti,0);
 						break;
-					case 5:
+					case GIOCO_RAZZO:
 						showNumbers(Punti,0);
 						break;
-					case 6:
-						showNumbers(Punti,0);
+					case GIOCO_SETTEMEZZO:
+						if(Punti>durataGioco2 || (durataGioco2>75 && Punti<=75)) {		//https://it.wikipedia.org/wiki/Sette_e_mezzo
+							showText("WIN");
+							}
+						else {
+							showText("LOS");
+							}
+						Displays[0][0] = Displays[0][1];			// bah faccio così qua, non tocco dMode
+						Displays[1][0] = Displays[1][1];			// bah faccio così qua, non tocco dMode
+						Displays[2][0] = Displays[2][1];			// bah faccio così qua, non tocco dMode
 						break;
 					}
 				}
@@ -1498,20 +1635,20 @@ WORD getPuntiDaDisplay(void) {
 	BYTE i,j;
 
 	switch(tipoGioco) {
-		case 0:
+		case GIOCO_SLOT:
 			t[0]=t[1]=t[2]=0;
 			for(i=0; i<3; i++) {
 				switch(Displays[i][0]) {
-					case 0b01001001 /*12*/:			// non è il massimo ma ok..
+					case 0b01001001 /*12+26*/:			// non è il massimo ma ok..
 						t[0]++;
 						break;
-					case 0b01101011 /*12+1*/:
+					case 0b01101011 /*12+26+1*/:
 						t[1]++;
 						break;
-					case 0b01011101 /*12+2*/:
+					case 0b01011101 /*12+26+2*/:
 						t[2]++;
 						break;
-					case 0b01111111 /*12+3*/:
+					case 0b01111111 /*12+26+3*/:
 						t[3]++;
 						break;
 					}
@@ -1550,7 +1687,7 @@ WORD getPuntiDaDisplay(void) {
 					break;
 				}
 			break;
-		case 1:
+		case GIOCO_DADI:
 			t[0]=0;
 			for(i=0; i<3; i+=2) {
 				for(j=0b01000000; j; j>>=1) {
@@ -1561,11 +1698,12 @@ WORD getPuntiDaDisplay(void) {
 				}
 			return t[0];
 			break;
-		case 2:
+		case GIOCO_TOMBOLA:
 			break;
-		case 3:
-			break;
-		case 4:
+		case GIOCO_CASCADE:
+		case GIOCO_AUTO:
+		case GIOCO_RAZZO:
+		case GIOCO_SETTEMEZZO:
 			break;
 		}
 
@@ -1577,10 +1715,10 @@ BYTE getPuntiDaCarta40(BYTE n) {		// in decimi
 
 	i=n / 4;
 	j=n % 10;
-	if(j>=8)
+	if(j>=7)
 		return 5;
 	else
-		return j*10;
+		return (j+1)*10;
 	}
 
 void showChar(char q,char n,BYTE pos,BYTE dp) {
@@ -1588,7 +1726,7 @@ void showChar(char q,char n,BYTE pos,BYTE dp) {
 	if(n>='0' && n<='9')
 		Displays[pos][q]=table_7seg[n-'0'+1];
 	else if(n>='A' && n<='Z')
-		Displays[pos][q]=table_7seg[n-'A'+10+1];
+		Displays[pos][q]=table_7seg[n-'A'+10+1+1];
 	else if(n=='-')
 		Displays[pos][q]=table_7seg[11];
 	else if(!n)
@@ -1599,18 +1737,31 @@ void showChar(char q,char n,BYTE pos,BYTE dp) {
 		Displays[pos][q] |= 0b10000000;
 	}
 
+void showText(const rom char *s) {
+
+	showChar(0,*s++,0,0);
+	if(*s) {
+		showChar(0,*s++,1,0);
+		showChar(0,*s,2,0);		// questo è ok cmq!
+		}
+	else {
+		showChar(0,0,1,0);
+		showChar(0,0,2,0);
+		}
+	}
+
 void showFruits(BYTE n1,BYTE n2,BYTE n3) {
 
-	showChar(0,n1+12,2,0);
-	showChar(0,n2+12,1,0);
-	showChar(0,n3+12,0,0);
+	showChar(0,n1+12+26,2,0);
+	showChar(0,n2+12+26,1,0);
+	showChar(0,n3+12+26,0,0);
 	}
 
 void showDadi(BYTE n1,BYTE n2) {
 
-	showChar(0,n2+16,2,0);
+	showChar(0,n2+16+26,2,0);
 	Displays[1][0] = 0b00000000;
-	showChar(0,n1+16,0,0);
+	showChar(0,n1+16+26,0,0);
 	}
 
 void showCarta(BYTE n) {
@@ -1632,7 +1783,7 @@ void showCarta(BYTE n) {
 			showChar(0,'P',1,0);
 			break;
 		}
-	Displays[1][0] = 0b00000000;
+	Displays[2][0] = 0b00000000;
 	switch(j) {
 		case 7:
 			showChar(0,'F',0,0);
@@ -1705,37 +1856,6 @@ void showNumbers(int n,BYTE prec) {
 		}
 	}
 
-void showAllNumbers(int n,BYTE prec) {
-	char myBuf[8];
-	char sign;		// 1 se negativo
-
-	if(n<0) {
-		sign=1;
-		n=-n;
-		}
-	else
-		sign=0;
-	myBuf[0]= (n % 10) + '0';
-	showChar(1,myBuf[0],2,0 /*!prec MAI */);
-	n /= 10;
-	prec--;
-	myBuf[1]= (n % 10) + '0';
-	showChar(1,myBuf[1],1,!prec);
-	n /= 10;
-	prec--;
-	if(sign) {
-//		myBuf[0]='-';
-		showChar(1,'-',0,!prec);
-		if(n>=1)
-			showOverFlow(1);
-		}
-	else {
-		myBuf[3]= (n % 10) + '0';
-		showChar(1,myBuf[3],0,!prec);
-		if(n>=10)
-			showOverFlow(1);
-		}
-	}
 
 void StdBeep(void) {
 	int n=3000;		// ~1 sec
@@ -1794,6 +1914,39 @@ libera:
 		}
 	}
 
+signed char pescaNumeroLotto(void) {
+	BYTE i,j,n;
+
+	for(i=0; i<12; i++) {
+		for(j=0; j<8; j++) {
+			if(!(numeriLotto[i] & 1<<j))
+				goto libera;
+			}
+		}
+	return -1;
+
+libera:
+	n=rand() % 90;
+	i=n / 12;
+	j=n % 8;
+	if(!(numeriLotto[i] & 1<<j)) {
+		numeriLotto[i] |= 1<<j;
+		return n+1;
+		}
+	else {
+		n++;
+		if(n<90)
+			goto libera;
+		else
+			return -1;
+		}
+	}
+
+void azzeraLotto(void) {
+
+	numeriLotto[0]=numeriLotto[1]=numeriLotto[2]=numeriLotto[3]=numeriLotto[4]=numeriLotto[5]=0;
+	numeriLotto[6]=numeriLotto[7]=numeriLotto[8]=numeriLotto[9]=numeriLotto[10]=numeriLotto[11]=0;
+	}
 
 // -------------------------------------------------------------------------------------
 void EEscrivi_(SHORTPTR addr,BYTE n) {		// usare void * ?
