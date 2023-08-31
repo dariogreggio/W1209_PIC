@@ -83,7 +83,7 @@ Dedicato alla dolce guerra :) (il nasdaq muore, le atomiche arrivano...)
 
 #pragma romdata
 static rom const char CopyrString[]= {'C','y','b','e','r','d','y','n','e',' ','(','A','D','P','M',')',' ','-',' ','G','i','o','c','h','i','n','i',' ','7','s','e','g',' ',
-	VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','3','0','/','0','8','/','2','3', 0 };
+	VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','3','1','/','0','8','/','2','3', 0 };
 
 const rom BYTE table_7seg[]={0, // .GFEDCBA
 															0b00111111,0b00000110,0b01011011,0b01001111,0b01100110,
@@ -135,7 +135,7 @@ enum GIOCHI {
 	GIOCO_RAZZO,
 	GIOCO_SETTEMEZZO
 	};
-#define MAX_GIOCHI GIOCO_SETTEMEZZO
+#define MAX_GIOCHI (GIOCO_SETTEMEZZO+1)
 enum GIOCHI tipoGioco=GIOCO_SLOT;		//0=Slot, 1=Dadi, 2=tombola, 3=cascade, 4=auto, 5=atterraggio, 6=sette e mezzo
 BYTE durataGioco,durataGioco2;
 WORD Punti,totPunti;
@@ -528,8 +528,9 @@ void handle_events(void) {
 							}
 						break;
 					case GIOCO_SETTEMEZZO:
-						if((!durataGioco && gameMode==2) || (durataGioco && gameMode==3)) {		// pesco carta (a seconda se ha iniziato banco o giocatore
-							BYTE i;
+						{
+						BYTE i;
+						if(!durataGioco && gameMode==2) {		// pesco carta (se ha iniziato giocatore
 	
 							i=estraiCarta40();
 							if(i==10+10-1)		// matta, re di quadri/denari!
@@ -537,20 +538,33 @@ void handle_events(void) {
 							else
 								Punti+=getPuntiDaCarta40(i);
 							showCarta(i);
-//							dMode=1;
+	
+							if(Punti>75) {
+								dividerT=0;
+								gameMode=3;
+								}
+							}
+						if(durataGioco && gameMode==3) {		// pesco carta (se ha iniziato banco 
+	
+							i=estraiCarta40();
+							if(i==10+10-1)		// matta, re di quadri/denari!
+								Punti=75;
+							else
+								Punti+=getPuntiDaCarta40(i);
+							showCarta(i);
 	
 							if(Punti>durataGioco2 || Punti>75) {
 								dividerT=0;
 								gameMode=4;
 								}
-	
 							}
 						if(gameMode<2) { // dopo!
 							gameMode=2;
 							dividerT=0;
-while(!sw1)		// qua meglio aspettare rilascio..
-	ClrWdt();
-}
+							while(!sw1)		// qua meglio aspettare rilascio..
+								ClrWdt();
+							}
+						}
 						break;
 					}
 				}
@@ -648,7 +662,11 @@ while(!sw1)		// qua meglio aspettare rilascio..
 					case GIOCO_RAZZO:
 						break;
 					case GIOCO_SETTEMEZZO:
-						if(gameMode>=2) {		// fine giocate (sia se inizia giocatore sia banco
+						if(!durataGioco && gameMode==2) {		// se ha iniziato giocatore
+							dividerT=0;
+							gameMode=3;
+							}
+						if(durataGioco && gameMode==3) {		// se ha iniziato banco 
 							dividerT=0;
 							gameMode=4;
 							}
@@ -670,7 +688,7 @@ while(!sw1)		// qua meglio aspettare rilascio..
 					case GIOCO_RAZZO:
 						if(gameMode==3)
 							if((signed char)durataGioco>-50)
-								durataGioco-=3;		// lo tratto come signed
+								durataGioco-=2;		// lo tratto come signed
 	// gestire carburante??
 						break;
 					case GIOCO_SETTEMEZZO:
@@ -701,8 +719,8 @@ while(!sw1)		// qua meglio aspettare rilascio..
 						break;
 					}
 				dMode=1;
-				Displays[2][1] = 0b00001000;
-				showNumbers(totPunti,0);
+//				Displays[2][1] = 0b00001000;
+				showNumbers(totPunti,0,1);
 				while(!sw1)			// debounce per evitare che lo prenda sotto!
 					ClrWdt();
 				Displays[2][1] = 0b00000000;
@@ -758,10 +776,13 @@ while(!sw1)		// qua meglio aspettare rilascio..
 void updateUI(void) {
 	BYTE i;
 
+	if(gameMode==2 || gameMode==3)
+		mLED_1 ^= 1;			// 
 
 	if(dividerUI>=5) {		//500mS
 
-		mLED_1 ^= 1;
+		if(gameMode<2 || gameMode>3)
+			mLED_1 ^= 1;			// 
 	
 		dividerUI=0;
 	
@@ -949,7 +970,7 @@ void updateUI(void) {
 							Displays[2][0] = 0b00111111;
 							break;
 						case GIOCO_TOMBOLA:
-							Displays[0][0] = 0b00111111;
+							Displays[0][0] = 0b00111111;		// 090
 							Displays[1][0] = 0b01101111;
 							Displays[2][0] = 0b00111111;
 							break;
@@ -999,27 +1020,25 @@ void updateUI(void) {
 			dMode=1;
 			switch(tipoGioco) {
 				case GIOCO_SLOT:
-					showNumbers(totPunti,0);
+					showNumbers(totPunti,0,1);
 					break;
 				case GIOCO_DADI:
 
 			dividerT=12;
 					break;
 				case GIOCO_TOMBOLA:
-
-			dividerT=12;
+					showNumbers(Punti,0,1);		// numero estratto prec
+//			dividerT=12;
 					break;
 				case GIOCO_CASCADE:
-
-					showNumbers(durataGioco,0);		// bah astronavi
+					showNumbers(Punti,0,1);		// punti partita prec
 					break;
 				case GIOCO_AUTO:
-
-					showNumbers(durataGioco,0);		// bah tempo residuo
+					showNumbers(Punti,0,1);		// punti partita prec
 					break;
 				case GIOCO_RAZZO:
 
-					showNumbers(durataGioco2,0);		// bah carburante residuo o tempo impiegato
+					showNumbers(durataGioco2,0,1);		// bah carburante residuo o tempo impiegato
 					break;
 				case GIOCO_SETTEMEZZO:
 					break;
@@ -1085,13 +1104,30 @@ void updateUI(void) {
 						}
 					break;
 				case GIOCO_TOMBOLA:
-					i=pescaNumeroLotto();
-					if((signed char)i>0) {
-						showNumbers(i,0);
-						dMode=1;
+					if(durataGioco2) {
+						if(durataGioco2>=20)
+							n=1;
+						else if(durataGioco2>=12)
+							n=2;
+						else if(durataGioco2>=6)
+							n=3;
+						else if(durataGioco2>=3)
+							n=4;
+						else
+							n=5;
+						if(dividerT >= n) {
+							WORD d=(rand() % 89)+1;
+							showNumbers(d,0,0);
+							durataGioco2--;
+							dividerT=0;
+							}
 						}
-					else
-						showText("FIN");
+					else {
+						if(dividerT > 20) {
+							gameMode=3;
+							dividerT=0;
+							}
+						}
 					break;
 				case GIOCO_CASCADE:
 					Displays[0][0] = 0b00000000;
@@ -1119,8 +1155,7 @@ void updateUI(void) {
 					Punti=900;		// metri
 					durataGioco=0;
 					durataGioco2=0;
-					showNumbers(Punti,0);
-					dMode=1;
+					showNumbers(Punti,0,0);
 					if(dividerT > 5) {
 						gameMode=3;
 						dividerT=0;
@@ -1129,14 +1164,14 @@ void updateUI(void) {
 				case GIOCO_SETTEMEZZO:
 					switch(dividerT) {
 						case 1:
-							Punti=0;		// 
+							Punti=0;		// punti giocatore
 							durataGioco=0;		// se banco o giocatore prima
-							durataGioco2=0;
+							durataGioco2=0;		// punti banco
+							showText("PRE");
 							break;
 						case 2:
 							mischiaMazzo();		// tutto finto :D quasi
-							showNumbers((rand() % /*52*/ 40)+1,0);		// tanto per..
-							dMode=1;
+							showNumbers((rand() % /*52*/ 40)+1,0,0);		// tanto per..
 							break;
 						case 10:
 							durataGioco=rand() & 1;
@@ -1169,15 +1204,14 @@ void updateUI(void) {
 									Displays[2][0] |= 0b10000000;		// indica attesa giocatore :)
 									}
 								else {	// alterno con punti
-									showNumbers(Punti,1);
+									showNumbers(Punti,1,1);
 									dMode=1;
 									Displays[2][0] &= ~0b10000000;		// indica attesa giocatore :)
 									}
 								}
 							break;
 						case 40:
-							showNumbers(durataGioco2,1);
-							dMode=1;
+							showNumbers(durataGioco2,1,0);
 							break;
 						case 50:
 							dividerT=29;
@@ -1250,33 +1284,15 @@ void updateUI(void) {
 						}
 					break;
 
-				case GIOCO_TOMBOLA:			// qua si potrebbe anche cambiare/semplificare...
-					if(durataGioco2) {
-						if(durataGioco2>=20)
-							n=1;
-						else if(durataGioco2>=12)
-							n=2;
-						else if(durataGioco2>=6)
-							n=3;
-						else if(durataGioco2>=3)
-							n=4;
-						else
-							n=5;
-						if(dividerT >= n) {
-							WORD d=(rand() % 89)+1;
-							showNumbers(d,0);
-							for(i=0; i<3; i++)
-								Displays[i][0] = Displays[i][1];			// bah faccio così qua, non tocco dMode
-							durataGioco2--;
-							dividerT=0;
-							}
+				case GIOCO_TOMBOLA:			// 
+					Punti=pescaNumeroLotto();
+					if((signed char)Punti>0) {
+						showNumbers(Punti,0,0);
 						}
-					else {
-						if(dividerT > 20) {
-							gameMode=4;
-							dividerT=0;
-							}
-						}
+					else
+						showText("FIN");
+					dividerT=0;
+					gameMode=4;
 					break;
 
 				case GIOCO_CASCADE:
@@ -1501,16 +1517,21 @@ fuori_strada:
 				case GIOCO_RAZZO:
 					if((signed char)durataGioco<100)
 						durataGioco+=1;		// 0.98 ossia 9.8m/s in 100mS
-					if(Punti>durataGioco)
+					if((signed char)durataGioco>0) {
+						if(Punti>(signed char)durataGioco)
+							Punti-=(signed char)durataGioco;
+						else
+							Punti=0;
+						}
+					if((signed char)durataGioco<0) {
 						Punti-=(signed char)durataGioco;
-					else
-						Punti=0;
+						}
 
-					showNumbers(Punti,0);
-					for(i=0; i<3; i++) {
-						Displays[i][0] = Displays[i][1];			// bah faccio così qua, non tocco dMode
-						if((signed char)durataGioco<0) 		// retrorazzi, accendo puntini
-							Displays[i][0] |= 0b10000000;
+					showNumbers(Punti,0,0);
+					if((signed char)durataGioco<0) { 		// retrorazzi, accendo puntini
+						Displays[0][0] |= 0b10000000;
+						Displays[1][0] |= 0b10000000;
+						Displays[2][0] |= 0b10000000;
 						}
 
 					if(Punti>=1000) {
@@ -1554,7 +1575,7 @@ fuori_strada:
 								}
 							}
 						else if(dividerT>3) {	// alterno con punti
-							showNumbers(Punti,1);
+							showNumbers(Punti,1,1);
 							dMode=1;
 							}
 						}
@@ -1564,7 +1585,7 @@ fuori_strada:
 							dividerT=0;
 							}
 						else if(dividerT>3) {	// alterno con punti
-							showNumbers(Punti,1);
+							showNumbers(Punti,1,1);
 							dMode=1;
 							Displays[2][0] ^= 0b10000000;		// indica attesa giocatore :)
 							}
@@ -1579,7 +1600,7 @@ fuori_strada:
 				switch(tipoGioco) {
 					case GIOCO_SLOT:
 						Punti=getPuntiDaDisplay();
-						showNumbers(Punti,0);
+						showNumbers(Punti,0,1);
 						totPunti += Punti;
 						if(Punti) {		// giustamente :)
 // bah tolgo per ora... finire per tutti, array boh							EEscrivi_(&totPunti,LOBYTE(totPunti));
@@ -1588,22 +1609,22 @@ fuori_strada:
 						break;
 					case GIOCO_DADI:
 						Punti=getPuntiDaDisplay();
-						showNumbers(Punti,0);
+						showNumbers(Punti,0,1);
 						break;
 					case GIOCO_TOMBOLA:
-//						Punti=getPuntiDaDisplay();
-//						showNumbers(Punti,0);
-// a posto così
+						Displays[0][1] = Displays[0][0];			// bah faccio così qua, non tocco dMode
+						Displays[1][1] = Displays[1][0];
+						Displays[2][1] = Displays[2][0];
 						StdBeep();
 						break;
 					case GIOCO_CASCADE:
-						showNumbers(Punti,0);
+						showNumbers(Punti,0,1);
 						break;
 					case GIOCO_AUTO:
-						showNumbers(Punti,0);
+						showNumbers(Punti,0,1);
 						break;
 					case GIOCO_RAZZO:
-						showNumbers(Punti,0);
+						showNumbers(durataGioco2,0,1);
 						break;
 					case GIOCO_SETTEMEZZO:
 						if(Punti>durataGioco2 || (durataGioco2>75 && Punti<=75)) {		//https://it.wikipedia.org/wiki/Sette_e_mezzo
@@ -1612,9 +1633,9 @@ fuori_strada:
 						else {
 							showText("LOS");
 							}
-						Displays[0][0] = Displays[0][1];			// bah faccio così qua, non tocco dMode
-						Displays[1][0] = Displays[1][1];			// bah faccio così qua, non tocco dMode
-						Displays[2][0] = Displays[2][1];			// bah faccio così qua, non tocco dMode
+						Displays[0][1] = Displays[0][0];			// bah faccio così qua, non tocco dMode
+						Displays[1][1] = Displays[1][0];
+						Displays[2][1] = Displays[2][0];
 						break;
 					}
 				}
@@ -1782,6 +1803,9 @@ void showCarta(BYTE n) {
 		case 3:
 			showChar(0,'P',1,0);
 			break;
+		default:		// non deve accadere... debug..
+			showChar(0,0,1,0);
+			break;
 		}
 	Displays[2][0] = 0b00000000;
 	switch(j) {
@@ -1824,7 +1848,7 @@ void show2Numbers(BYTE n1,BYTE n2,char m) {
 		Displays[2][1] &= ~0b00000110;
 	}
 
-void showNumbers(int n,BYTE prec) {
+void showNumbers(int n,BYTE prec,BYTE w) {
 	char myBuf[8];
 	char sign;		// 1 se negativo
 
@@ -1835,24 +1859,24 @@ void showNumbers(int n,BYTE prec) {
 	else
 		sign=0;
 	myBuf[0]= (n % 10) + '0';
-	showChar(1,myBuf[0],2,0 /*!prec MAI */);
+	showChar(w,myBuf[0],2,0 /*!prec MAI */);
 	n /= 10;
 	prec--;
 	myBuf[1]= (n % 10) + '0';
-	showChar(1,myBuf[1],1,!prec);
+	showChar(w,myBuf[1],1,!prec);
 	n /= 10;
 	prec--;
 	if(sign) {
 //		myBuf[0]='-';
-		showChar(1,'-',0,!prec);
+		showChar(w,'-',0,!prec);
 		if(n>=1)
 			showOverFlow(1);
 		}
 	else {
 		myBuf[2]= (n % 10) + '0';
-		showChar(1,myBuf[2] != '0' ? myBuf[2] : 0,0,!prec);
+		showChar(w,myBuf[2] != '0' ? myBuf[2] : 0,0,!prec);
 		if(n>=10)
-			showOverFlow(1);
+			showOverFlow(1);			// solo buffer 1?!
 		}
 	}
 
@@ -1902,6 +1926,7 @@ signed char estraiCarta40(void) {
 
 libera:
 	n=rand() % 40;
+libera2:
 	i=n / 4;
 	j=n % 10;
 	if(!(mazzoDiCarte[i] & 1<<j)) {
@@ -1910,7 +1935,7 @@ libera:
 		}
 	else {
 		n++;
-		goto libera;
+		goto libera2;
 		}
 	}
 
@@ -1927,6 +1952,7 @@ signed char pescaNumeroLotto(void) {
 
 libera:
 	n=rand() % 90;
+libera2:
 	i=n / 12;
 	j=n % 8;
 	if(!(numeriLotto[i] & 1<<j)) {
@@ -1936,7 +1962,7 @@ libera:
 	else {
 		n++;
 		if(n<90)
-			goto libera;
+			goto libera2;
 		else
 			return -1;
 		}
