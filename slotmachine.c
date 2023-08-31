@@ -312,6 +312,7 @@ void main(void) {
 
 //	STKPTR=0;		// risparmia una posizione di Stack, xché main() è stata CALLed!
 
+
   InitializeSystem();
 
   while(1) {
@@ -1171,7 +1172,7 @@ void updateUI(void) {
 							break;
 						case 2:
 							mischiaMazzo();		// tutto finto :D quasi
-							showNumbers((rand() % /*52*/ 40)+1,0,0);		// tanto per..
+//							showNumbers((rand() % /*52*/ 40)+1,0,0);		// tanto per..
 							break;
 						case 10:
 							durataGioco=rand() & 1;
@@ -1183,7 +1184,7 @@ void updateUI(void) {
 								}
 							break;
 						case 30:
-							if(durataGioco) {
+							if(durataGioco) {			// se tocca al banco...
 								if(durataGioco2 <= 50 || (durataGioco2 <= 70 && rand()<5000)) {		// strategia diciamo :)
 									i=estraiCarta40();
 									if(i==10+10-1)		// matta, re di quadri/denari!
@@ -1191,6 +1192,9 @@ void updateUI(void) {
 									else
 										durataGioco2+=getPuntiDaCarta40(i);
 									showCarta(i);
+									if(durataGioco2>75) {			// se sballa suono cmq :)
+										ErrorBeep();
+										}
 									}
 								else {
 //									showNumbers(durataGioco2,1);
@@ -1200,18 +1204,27 @@ void updateUI(void) {
 									}
 								}
 							else {
-								if(dividerT & 4) {		// mostro carta
-									Displays[2][0] |= 0b10000000;		// indica attesa giocatore :)
-									}
-								else {	// alterno con punti
-									showNumbers(Punti,1,1);
-									dMode=1;
-									Displays[2][0] &= ~0b10000000;		// indica attesa giocatore :)
-									}
+								Displays[2][0] |= 0b10000000;		// indica attesa giocatore :)
 								}
 							break;
 						case 40:
-							showNumbers(durataGioco2,1,0);
+							if(durataGioco) {			// se tocca al banco...
+								showNumbers(durataGioco2,1,1);
+								}
+							else {
+								showNumbers(Punti,1,1);
+								Displays[2][0] &= ~0b10000000;		// indica attesa giocatore :)
+								}
+						case 41:
+						case 42:
+						case 43:
+						case 44:
+						case 45:
+						case 46:
+						case 47:
+						case 48:
+						case 49:
+							dMode=1;
 							break;
 						case 50:
 							dividerT=29;
@@ -1557,7 +1570,7 @@ fuori_strada:
 					break;
 
 				case GIOCO_SETTEMEZZO:
-					if(!durataGioco) {
+					if(!durataGioco) {		// se tocca al banco...
 						if(dividerT>7) {		// mostro carta
 							dividerT=0;
 							if(durataGioco2 <= 50 || (durataGioco2 <= 70 && rand()<5000)) {		// strategia diciamo :)
@@ -1567,27 +1580,31 @@ fuori_strada:
 								else
 									durataGioco2+=getPuntiDaCarta40(i);
 								showCarta(i);
-								if(Punti>75)			// se giocatore ha sballato, esco subito!
+								if(Punti>75) {			// se giocatore ha sballato, esco subito!
 									gameMode=4;
+									ErrorBeep();
+									}
 								}
 							else {
+//								dividerT=0; ovvio
 								gameMode=4;
+								StdBeep();
 								}
 							}
 						else if(dividerT>3) {	// alterno con punti
-							showNumbers(Punti,1,1);
+							showNumbers(durataGioco2,1,1);
 							dMode=1;
 							}
 						}
 					else {
 						if(dividerT>7) {		// mostro carta
-							Displays[2][0] ^= 0b10000000;		// indica attesa giocatore :)
+							Displays[2][0] |= 0b10000000;		// indica attesa giocatore :)
 							dividerT=0;
 							}
 						else if(dividerT>3) {	// alterno con punti
 							showNumbers(Punti,1,1);
 							dMode=1;
-							Displays[2][0] ^= 0b10000000;		// indica attesa giocatore :)
+							Displays[2][0] &= ~0b10000000;		// indica attesa giocatore :)
 							}
 						}
 					break;
@@ -1627,11 +1644,22 @@ fuori_strada:
 						showNumbers(durataGioco2,0,1);
 						break;
 					case GIOCO_SETTEMEZZO:
-						if(Punti>durataGioco2 || (durataGioco2>75 && Punti<=75)) {		//https://it.wikipedia.org/wiki/Sette_e_mezzo
-							showText("WIN");
+						Delay_S_(15);			// per rapidità faccio così qua! che si veda l'ultima carta
+						if(Punti<=75) {		//https://it.wikipedia.org/wiki/Sette_e_mezzo
+							if(durataGioco2>75 || Punti>durataGioco2) {
+lotto_win:
+								showText("WIN");
+								}
+							else {
+lotto_los:
+								showText("LOS");
+								}
 							}
 						else {
-							showText("LOS");
+							if(durataGioco2<=75)
+								goto lotto_los;
+							else		// il "pari" non so se c'è... 
+								goto lotto_los;
 							}
 						Displays[0][1] = Displays[0][0];			// bah faccio così qua, non tocco dMode
 						Displays[1][1] = Displays[1][0];
@@ -1732,9 +1760,8 @@ WORD getPuntiDaDisplay(void) {
 	}
 
 BYTE getPuntiDaCarta40(BYTE n) {		// in decimi
-	BYTE i,j;
+	BYTE j;
 
-	i=n / 4;
 	j=n % 10;
 	if(j>=7)
 		return 5;
@@ -1788,26 +1815,13 @@ void showDadi(BYTE n1,BYTE n2) {
 void showCarta(BYTE n) {
 	BYTE i,j;
 
-	i=n / 4;
+	i=n / 10;
 	j=n % 10;
-	switch(i) {
-		case 0:
-			showChar(0,'C',1,0);
-			break;
-		case 1:
-			showChar(0,'Q',1,0);
-			break;
-		case 2:
-			showChar(0,'F',1,0);
-			break;
-		case 3:
-			showChar(0,'P',1,0);
-			break;
-		default:		// non deve accadere... debug..
-			showChar(0,0,1,0);
-			break;
-		}
-	Displays[2][0] = 0b00000000;
+	showChar(0,"CQFP"[i],1,0);
+	if(n==10+10-1)		// matta, re di quadri/denari
+		Displays[2][0] = 0b10000010;			// !
+	else
+		Displays[2][0] = 0b00000000;
 	switch(j) {
 		case 7:
 			showChar(0,'F',0,0);
@@ -1918,7 +1932,7 @@ signed char estraiCarta40(void) {
 
 	for(i=0; i<4; i++) {
 		for(j=0; j<10; j++) {
-			if(!(mazzoDiCarte[i] & 1<<j))
+			if(!(mazzoDiCarte[i] & (1<<j)))
 				goto libera;
 			}
 		}
@@ -1927,14 +1941,15 @@ signed char estraiCarta40(void) {
 libera:
 	n=rand() % 40;
 libera2:
-	i=n / 4;
+	i=n / 10;
 	j=n % 10;
-	if(!(mazzoDiCarte[i] & 1<<j)) {
+	if(!(mazzoDiCarte[i] & (1<<j))) {
 		mazzoDiCarte[i] |= 1<<j;
 		return n;
 		}
 	else {
 		n++;
+		n %= 40;
 		goto libera2;
 		}
 	}
@@ -1944,7 +1959,7 @@ signed char pescaNumeroLotto(void) {
 
 	for(i=0; i<12; i++) {
 		for(j=0; j<8; j++) {
-			if(!(numeriLotto[i] & 1<<j))
+			if(!(numeriLotto[i] & (1<<j)))
 				goto libera;
 			}
 		}
@@ -1955,16 +1970,14 @@ libera:
 libera2:
 	i=n / 12;
 	j=n % 8;
-	if(!(numeriLotto[i] & 1<<j)) {
+	if(!(numeriLotto[i] & (1<<j))) {
 		numeriLotto[i] |= 1<<j;
 		return n+1;
 		}
 	else {
 		n++;
-		if(n<90)
-			goto libera2;
-		else
-			return -1;
+		n %= 90;
+		goto libera2;
 		}
 	}
 
