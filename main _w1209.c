@@ -1170,9 +1170,6 @@ salva:
 				  showChar('E',2,0);
 				  showChar('E',1,0);
 				  showChar('E',0,0);
-				showChar('7',2,1);
-				showChar('O',1,1);
-				showChar('L',0,1);
 					}
 				break;
 			case MENU_ORA:
@@ -2135,7 +2132,7 @@ signed int leggi_tempAna() {			// in decimi °C
 	n=ReadADC();
 
   
-  	return n;
+//  	return n;
 
   
   
