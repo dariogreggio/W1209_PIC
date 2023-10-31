@@ -136,8 +136,8 @@ const rom char data7=0x00u;
 // CONFIG1
 #pragma config FOSC = INTOSC    // Oscillator Selection Bits (INTOSC oscillator: I/O function on CLKIN pin)
 #pragma config WDTE = ON        // Watchdog Timer Enable (WDT enabled)
-#pragma config PWRTE = OFF      // Power-up Timer Enable (PWRT disabled)
-#pragma config MCLRE = ON       // MCLR Pin Function Select (MCLR/VPP pin function is MCLR)
+#pragma config PWRTE = ON      // Power-up Timer Enable (PWRT enabled)
+#pragma config MCLRE = OFF       // MCLR Pin Function Select (MCLR/VPP pin function is I/O)
 #pragma config CP = OFF         // Flash Program Memory Code Protection (Program memory code protection is disabled)
 #pragma config BOREN = ON       // Brown-out Reset Enable (Brown-out Reset enabled)
 #pragma config CLKOUTEN = OFF   // Clock Out Enable (CLKOUT function is disabled. I/O or oscillator function on the CLKOUT pin)
@@ -153,7 +153,8 @@ const rom char data7=0x00u;
 #pragma config STVREN = ON      // Stack Overflow/Underflow Reset Enable (Stack Overflow or Underflow will cause a Reset)
 #pragma config BORV = LO        // Brown-out Reset Voltage Selection (Brown-out Reset Voltage (Vbor), low trip point selected.)
 #pragma config LPBOR = OFF      // Low-Power Brown Out Reset (Low-Power BOR is disabled)
-#pragma config LVP = ON         // Low-Voltage Programming Enable (Low-voltage programming enabled)
+#pragma config LVP = OFF         // Low-Voltage Programming Enable (Low-voltage programming disabled (dice che altrimenti si perde MCLR I/O..)
+// ma i pin usb/ICSP funziano solo in LVP!!
 
 // #pragma config statements should precede project file includes.
 // Use project enums instead of #define for ON and OFF.
@@ -164,7 +165,9 @@ const rom char data7=0x00u;
 
 
 /** VARIABLES ******************************************************/
+#ifdef USA_USB
 #pragma udata
+#endif
 
 #define CLOCK_TUNE_DEFAULT 960		//perde 1 ora su 12, 25/6/12, ecc
 WORD clockTune=CLOCK_TUNE_DEFAULT;		//deve andare in Flash...
@@ -187,7 +190,7 @@ static const rom char CopyrString[]= {'T','e','r','m','o','s','t','a','t','o',' 
 #ifdef USA_USB
 'c','o','n',' ','U','S','B',' ',
 #endif
-	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','1','9','/','0','8','/','2','3', 0 };
+	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','3','1','/','1','0','/','2','3', 0 };
 
 const rom BYTE table_7seg[]={ 0, 	//PGFEDCBA
 													0b00111111,0b00000110,0b01011011,0b01001111,0b01100110,
@@ -201,7 +204,7 @@ const rom BYTE table_7seg[]={ 0, 	//PGFEDCBA
 													0b00111101,0b01110110,0b00110000,0b00001110,0b01110110,0b00111000,	//G..L
 													0b00110111,0b01010100,0b01011100,0b01110011,0b01100111,0b01010000,	//M..R (o piccola per distinguere)
 													0b01101101,0b01111000,0b00111110,0b00011100,0b00011100,0b00110110,	//S..X
-													0b01100010,0b01011011		//Y..Z
+													0b01101110,0b01011011		//Y..Z
 	};
 
 #if defined(__18CXX)
@@ -507,15 +510,19 @@ static void InitializeSystem(void) {
 #if defined(__XC8)
 	ANSELA=0b00000000;
 	ANSELC=0b00000000;
+#ifdef USA_ANALOG
 	ANSELAbits.ANSA4=1;
+#endif
 #else
 	ANSEL=0b00000000;
 	ANSELH=0b00000000;
+#ifdef USA_ANALOG
 	ANSELbits.ANS3=1;
+#endif
 #endif
 
 
-	TRISA = 0b00011011;		// led; AN0; pulsanti;
+	TRISA = 0b00011011;		// led; AN0 o AN3 = RA4; pulsanti;
 	TRISB = 0b00000000;		// catodi; 
 	TRISC = 0b00000000;		// display; OLed-I2C; 
 //	ODCA  = 0b0000000010000000;		// open collector
@@ -533,7 +540,7 @@ static void InitializeSystem(void) {
 	WPUB=0b00000000;
 
 // https://forum.microchip.com/s/topic/a5C3l000000MCLJEA4/t277505 porcodio RA0 RA1
-#ifndef USA_USB
+#ifndef __XC8
 	IOCA= 0b00000011;
 #endif
 
@@ -637,10 +644,9 @@ warm_reset:
 
 #ifdef USA_ANALOG
 #if defined(__XC8)
-	ADCON2=0b00101010;	//		; Left justify; 12 Tad, FOsc/32
-	ADCON1=0b00000000;	//		; VRef +/-
 	ADCON0=0b00001101;	//		; AN3 RA0 ; ON
-	// VERIFICA su questo PIC! 
+	ADCON1=0b10100000;	//		; Right justify; FOsc/32; VRef +/-
+	ADCON2=0b00000000;	//		; no autoconversion
 #else
 //	OpenADC(ADC_FOSC_32 & ADC_LEFT_JUST & ADC_12_TAD, ADC_CH3 & ADC_INT_OFF & ADC_VREFPLUS_VDD & ADC_VREFMINUS_VSS,
 //	);
@@ -685,6 +691,12 @@ int UserInit(void) {
 		*p=EEleggi(p);
 		p++;
 		}
+	p=(char *)&tempThreshold;
+	for(i=0; i<sizeof(tempThreshold); i++) {
+		*p=EEleggi(p);
+		p++;
+		}
+	tempThresholdDirection=EEleggi(&tempThresholdDirection);
 	}
 
 	if(currentTime.sec==255) {
@@ -1037,11 +1049,14 @@ return;*/
 
 //		cnt+=10;			// 
 
+#ifndef USA_USB
 		if(USBOn || !sw1 || !sw2 || !sw3) {
 	ClrWdt();
 			inEditTime=40;			// 8 sec per timeout
 			}
+#endif
 
+#ifndef USA_USB
 		if(!sw2 && (oldSw & 2)) {
 			if(inEdit) {
 				switch(MenuMode) {
@@ -1141,7 +1156,8 @@ salva:
 		else {
 			repeatCounter=0;
 			}
-
+#endif
+  
 		switch(MenuMode) {
 			case 0:
 				if(Temperature != INVALID_READOUT) {
@@ -1154,6 +1170,9 @@ salva:
 				  showChar('E',2,0);
 				  showChar('E',1,0);
 				  showChar('E',0,0);
+				showChar('7',2,1);
+				showChar('O',1,1);
+				showChar('L',0,1);
 					}
 				break;
 			case MENU_ORA:
@@ -1190,10 +1209,10 @@ salva:
 			  showNumbers(tempThreshold,1);
 				break;
 			case MENU_DIREZIONESOGLIA:
-				if(tempThresholdDirection) {
+				if(tempThresholdDirection) {		// relè on quando T è <, ossia tende a scaldare
 				  showChar('H',2,0);
 					}
-				else {
+				else {					// relè on quando T è >, ossia tende a raffreddare
 				  showChar('L',2,0);
 					}
 			  showChar(0,1,0);
@@ -1206,12 +1225,14 @@ salva:
 				MenuMode=0;
 				if(inEdit) {
 					inEdit=0;
+#ifndef USA_USB
 					goto salva;
+#endif
 					}
 				}
 			}
 
-		if(!sw3 && (oldSw & 4)) {
+	if(!sw3 && (oldSw & 4)) {
 			Beep();		// tanto per prova!!
 			}
 		if(!sw3)
@@ -1315,6 +1336,7 @@ salva:
 
 
 // BOH qua...?
+#ifndef USA_USB
 			if(!sw1 /* || !sw2*/) {
 				oldSw=(sw1 ? 1 : 0) | (sw2 ? 2 : 0) | (sw3 ? 4 : 0);
 				}
@@ -1326,7 +1348,7 @@ salva:
 //				cnt+=16;					// 8 sec circa (per mis. temperatura
 //				cnt2+=16;					// 8 sec circa (per SDcard
 				}
-
+#endif
 			}
 
 		}		// second_1
@@ -1408,6 +1430,13 @@ WORD EEleggiWord(SHORTPTR addr) {			// usare void * ?
 
 	return n;
 	}
+#else
+void EEscrivi_(SHORTPTR addr,BYTE n) {		// usare void * ?
+#warning FARE eeprom
+  }
+BYTE EEleggi(SHORTPTR addr) {			// usare void * ?
+
+	}
 #endif
 
 // -------------------------------------------------------------------------------------
@@ -1485,6 +1514,16 @@ void __delay_ms(BYTE n) {				// circa n ms
 #endif
 		} while(--n);
 	}
+
+#else
+
+void Delay_S_(BYTE n) {				// circa n*100mSec
+
+	do {
+	  __delay_ms(100);
+		} while(--n);
+	}
+
 #endif
 
 
@@ -2085,7 +2124,7 @@ void showText(char *s) {
 #if defined(__XC8)
 #define ConvertADC() ADCON0bits.GO=1
 #define BusyADC() (ADCON0bits.GO_nDONE)
-#define ReadADC() ADRESH		// usare 10 bit??
+#define ReadADC() ((((int)ADRESH) << 8 ) | ADRESL)		// usare 10 bit??
 #endif
 signed int leggi_tempAna() {			// in decimi °C
 	WORD n;
@@ -2095,11 +2134,18 @@ signed int leggi_tempAna() {			// in decimi °C
 		ClrWdt();
 	n=ReadADC();
 
+  
+  	return n;
+
+  
+  
 	if(n<400 || n>800)		// segnalo errore se chip guasto (-90..+300)
 		return INVALID_READOUT;
 
 //	n= (((DWORD)n*100) +7680L /*-51200*/)/256L;		//1K partitore, 10bit, 1/2Vcc @ 20V
-	n= (n-492-20)*10;		//1K partitore, 10bit, 1/2Vcc @ 20V
+	n= (n-492   -20 )*10;		//1K partitore, 10bit, 1/2Vcc @ 20V
+// sembra variare di 2/3°C anziché 1, il che avrebbe un senso dato il partitore... (ci vorrebbe corrente costante credo)
+// partendo da 22°C ambiente, corpo umano=32 e frigo=6, freezer=2
 	
 //n=ADRESH;
 

@@ -178,8 +178,8 @@ ROM BYTE configDescriptor1[]={
     /* Configuration Descriptor */
     9,    // Size of this descriptor in bytes
     USB_DESCRIPTOR_CONFIGURATION,                // CONFIGURATION descriptor type
-    0x40,0x00,          // Total length of data for this cfg
-    2,                      // Number of interfaces in this cfg
+    9+9+9+7+7,0x00,          // Total length of data for this cfg
+    1,                      // Number of interfaces in this cfg
     1,                      // Index value of this configuration
     0,                      // Configuration string index
     _DEFAULT | _SELF,               // Attributes, see usb_device.h
