@@ -24,9 +24,13 @@
 
 // il Timer0 conta ogni 125nSec*prescaler... (@8MHz CPUCLK => 2MHz) su PIC18
 #define TMR0BASE (256-100)		//   3.24mS=~300Hz per mux 2/8/23 #cancrofitch
-//((3240000L)/(1000000000.0/(GetPeripheralClock())*1))
+//((3240000L)/(1000000000.0/(GetPeripheralClock())*32))
 #define TMR1BASE (65536-25000)		//   10Hz per timer
-//((100000000L)/(1000000000.0/(GetPeripheralClock())*1))
+//((100000000L)/(1000000000.0/(GetPeripheralClock())*8))
+#define TMR3BASE_1 (65536-50000)		//   1Hz per timerCount di BASE
+#define TMR3BASE_10 (65536-5000)		//   10Hz
+// finire prescaler 4
+//((100000000L)/(1000000000.0/(GetPeripheralClock())*4))
 
 typedef unsigned char *SHORTPTR;
 
@@ -76,10 +80,11 @@ void I2CDelay(void);
 
 
 
+void StartTimer(void);
 void Beep(void);
 void showChar(char n,BYTE pos,BYTE dp);
 void showNumbers(int n,BYTE prec);
-void showText(char *s);
+void showText(const rom char *s);
 
 
 void UserTasks(void);
@@ -127,7 +132,7 @@ struct __attribute__((__packed__)) SAVED_PARAMETERS {
 	WORD timerCount;
 	BYTE timerUnit /* 0,1,... */;
 	signed char clock_correction;
-	BYTE timerOptions;			// b0=boot; b1=protect; b2=mode
+	BYTE timerOptions;			// b0=boot; b1=protect; b2=mode; b3: retriggerabile; (b4: azzerabile SEMPRE se non protect)
   };
 
 extern struct SAVED_PARAMETERS configParms;

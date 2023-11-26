@@ -66,7 +66,7 @@ W1209 timer
 
 #include "w1209_timer.h"
 
-#include "swi2c.h"
+//#include "swi2c.h"
 
 #ifdef USA_USB
 #include "USB.h"
@@ -175,17 +175,22 @@ const rom char data7=0x00u;
 #define CLOCK_TUNE_DEFAULT 960		//perde 1 ora su 12, 25/6/12, ecc
 WORD clockTune=CLOCK_TUNE_DEFAULT;		//deve andare in Flash...
 
+#ifdef __DEBUG
+BYTE SW[3]={1,1,1};
+#endif
+
 enum EDITS {
 	MENU_NOEDIT=0,
+	MENU_TIMER,
 	MENU_SECONDI,
 	MENU_MINUTI,
 	MENU_ORA,
 	MENU_GIORNO,
 	MENU_MESE,
 	MENU_ANNO,
-	MENU_TIMER,
 	MENU_TIMERUNIT,
 	MENU_TIMERMODE,
+	MENU_TIMERRETRIGGER,
 	MENU_TIMERBOOT,
 	MENU_TIMERPROTECT,
 	MENU_MAX
@@ -196,7 +201,7 @@ static const rom char CopyrString[]= {'T','i','m','e','r',' ','W','1','2','0','9
 #ifdef USA_USB
 'c','o','n',' ','U','S','B',' ',
 #endif
-	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','2','4','/','1','1','/','2','3', 0 };
+	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','2','6','/','1','1','/','2','3', 0 };
 
 const rom BYTE table_7seg[]={ 0, 	//PGFEDCBA
 													0b00111111,0b00000110,0b01011011,0b01001111,0b01100110,
@@ -281,7 +286,7 @@ USB_HANDLE USBInHandle = 0;
 #endif
 
 
-BYTE InAlert=FALSE,USBOn=FALSE,MenuMode=0;
+BYTE USBOn=FALSE,MenuMode;
 struct SAVED_PARAMETERS configParms;
 
 #if defined(__18CXX)
@@ -303,8 +308,9 @@ volatile unsigned char Displays[3];			// 3 display
 #endif
 volatile BYTE dim=FALSE;
 BYTE Buzzer=0;
-WORD TimerCount=0;
-static BYTE firstPassDisplay=8;
+volatile WORD TimerCount=0;
+volatile WORD Tmr3Base;
+static BYTE firstPassDisplay;
 volatile WORD tick10=0;
 volatile BYTE second_10=0;
 #if defined(__XC8)
@@ -407,15 +413,14 @@ int main(void)
   #endif
 #endif
 
+	if(configParms.timerOptions & 1) {
+		StartTimer();			// me mettere flag dopo primo giro!
+		}
+
 
   while(1) {
 
 		ClrWdt();
-//		LATB ^= 0xffff;
-//Displays[0]=0xff;
-//Displays[1]=0xff;
-//Displays[2]=0xff;
-
 
 #ifdef USA_USB
     #if defined(USB_POLLING)
@@ -604,16 +609,19 @@ static void InitializeSystem(void) {
 	T1CON=0b00110001;								// prescaler 1:8
 	INTCONbits.T0IE = 1;
 	PIE1bits.TMR1IE = 1;
+	T3CON=fare 0b00110001;								// prescaler 1:4
 #else
 	OpenTimer0(TIMER_INT_ON & T0_8BIT & T0_SOURCE_INT & T0_PS_1_32);
 										// (la frequenza di TMR0 e' 48/4MHz, divido per 32 )
 
 	OpenTimer1(TIMER_INT_ON & T1_16BIT_RW & T1_SOURCE_INT & T1_PS_1_8 & T1_OSC1EN_OFF & T1_SYNC_EXT_OFF );
+	OpenTimer3(TIMER_INT_OFF & T3_16BIT_RW & T3_SOURCE_INT & T3_PS_1_4 & T3_SYNC_EXT_OFF);
 #endif
 
 #if !defined(__XC8)
 	INTCON2bits.TMR0IP=1;			//high pty Timer 0
 	IPR1bits.TMR1IP=0;				//low pty Timer 1
+	IPR2bits.TMR3IP=0;				//low pty Timer 2
 #endif
 
 	ClrWdt();
@@ -631,8 +639,11 @@ warm_reset:
 #if defined(__XC8)
   TMR1H=TMR1BASE/256;
 	TMR1L=TMR1BASE & 255;
+  TMR3H=TMR3BASE_1/256;		//default tanto per! v. poi
+	TMR3L=TMR3BASE_1 & 255;
 #else
 	WriteTimer1(TMR1BASE);					// inizializzo TMR1
+	WriteTimer3(TMR3BASE_1);					// inizializzo TMR2
 #endif
 
 
@@ -721,6 +732,10 @@ int UserInit(void) {
 
 	configParms.clock_correction=EEleggi(&configParms.clock_correction);
 
+	if(configParms.timerOptions & 1)
+		firstPassDisplay=0;
+	else
+		firstPassDisplay=40;
 
 #ifdef USA_USB
   //initialize the variable holding the handle for the last transmission
@@ -988,86 +1003,72 @@ void prepStatusBuffer(BYTE t) {
 void UserTasks(void) {
 	int i;
 	static BYTE inEdit=0,oldSw=7,repeatCounter=0,inEditTime=0;
-	static WORD cnt=0,cnt2=0;
-	static BYTE divider=0;
+	static BYTE cnt=0,cnt2=0;
+	static BYTE oldMode=0,blinkCounter=0;
 
 
-	if(second_10) {			// 200 mSec qua...
-#warning fare 100mSec
+
+	if(second_10) {			// 100 mSec 
+#warning + rapido se timerCount più rapido?? anche per rele'
 		second_10=0;
 
-
-		if(!configParms.timerUnit) {
-			divider++;
-			if(divider >= 10) {
-				if(TimerCount)
-					TimerCount--;
-				}
+		if(configParms.timerOptions & 4) {
+// o usare oldMode? ecc
+			if(TimerCount==0)
+				m_Rele=1;
+			else
+				m_Rele=0;
 			}
 		else {
-			if(TimerCount)
-				TimerCount--;
+			if(TimerCount==0)
+				m_Rele=0;
+			else
+				m_Rele=1;
 			}
 
 
 		cnt++;
 		cnt2++;
 
- 	mLED_1 ^= 1; //
+	 	mLED_1 = TickGet() & 2 ? 1 : 0; //
 
 
 		if(firstPassDisplay) {			// lascia Splash per un po'..
 			firstPassDisplay--;
-			if(firstPassDisplay>6) {
-				showChar('-',0,0);
-				showChar('-',1,0);
-				showChar('-',2,0);
+			if(firstPassDisplay>32) {
+				showText("---");
 				Beep();			
 				}
-			else if(firstPassDisplay>3) {
+			else if(firstPassDisplay>16) {
 #ifdef USA_USB
-				showChar(CopyrString[34],2,0);
-				showChar(CopyrString[32],1,1);
-				showChar(CopyrString[31],0,0);
+				showChar(CopyrString[28],2,0);
+				showChar(CopyrString[26],1,1);
+				showChar(CopyrString[25],0,0);
 #else
-				showChar(CopyrString[26],2,0);
-				showChar(CopyrString[24],1,1);
-				showChar(CopyrString[23],0,0);
+				showChar(CopyrString[21],2,0);
+				showChar(CopyrString[19],1,1);
+				showChar(CopyrString[18],0,0);
 #endif
 				}
 			else {
 #ifdef USA_USB
-				showChar(CopyrString[38],2,1);
-				showChar(CopyrString[37],1,0);
-				showChar(CopyrString[35],0,1);
+				showChar(CopyrString[32],2,1);
+				showChar(CopyrString[31],1,0);
+				showChar(CopyrString[29],0,1);
 #else
-				showChar(CopyrString[30],2,1);
-				showChar(CopyrString[29],1,0);
-				showChar(CopyrString[27],0,1);
+				showChar(CopyrString[25],2,1);
+				showChar(CopyrString[24],1,0);
+				showChar(CopyrString[22],0,1);
 #endif
 				}
+			MenuMode=MENU_TIMER;
 			return;
 			}
 		else {
-			if(configParms.timerOptions & 1) {
-				TimerCount=configParms.timerCount;
-				}
 			}
 
 //		cnt+=10;			// 
 
-		if(configParms.timerOptions & 4) {
-			if(TimerCount==0)
-				m_Rele=1;
-			else
-				m_Rele=0;
-			}
-		else {
-			if(TimerCount==0)
-				m_Rele=0;
-			else
-				m_Rele=1;
-			}
 
 #ifndef USA_USB
 		if(USBOn || !sw1 || !sw2 || !sw3) {
@@ -1077,23 +1078,26 @@ void UserTasks(void) {
 #endif
 
 #ifndef USA_USB
-		if(!sw2 && (oldSw & 2)) {
+		if(!sw2 && (oldSw & 2)) {			// sw2: modifica parametri se in Edit
 			if(inEdit) {
 				switch(MenuMode) {
-					case 0:
+					case MENU_NOEDIT:
 						break;
-					case MENU_ORA:
-					  configParms.currentTime.hour++;
-					  if(configParms.currentTime.hour>=24)
-						  configParms.currentTime.hour=0;
+					case MENU_TIMER:
+					  configParms.timerCount++;
+						break;
+					case MENU_SECONDI:
+					  configParms.currentTime.sec=0;			// direi :)
 						break;
 					case MENU_MINUTI:
 					  configParms.currentTime.min++;
 					  if(configParms.currentTime.min>=60)
 						  configParms.currentTime.min=0;
 						break;
-					case MENU_SECONDI:
-					  configParms.currentTime.sec=0;			// direi :)
+					case MENU_ORA:
+					  configParms.currentTime.hour++;
+					  if(configParms.currentTime.hour>=24)
+						  configParms.currentTime.hour=0;
 						break;
 					case MENU_GIORNO:
 					  configParms.currentDate.mday++;
@@ -1113,16 +1117,16 @@ void UserTasks(void) {
 					  if(configParms.currentDate.year>=100)
 						  configParms.currentDate.year=0;
 						break;
-					case MENU_TIMER:
-					  configParms.timerCount++;
-						break;
 					case MENU_TIMERUNIT:
-						configParms.timerCount++;
-						if(configParms.timerCount>=2)		// ev. altre...
-							configParms.timerCount=0;
+						configParms.timerUnit++;
+						if(configParms.timerUnit>=2)		// ev. altre...
+							configParms.timerUnit=0;
 						break;
 					case MENU_TIMERMODE:
 						configParms.timerOptions ^= 4;
+						break;
+					case MENU_TIMERRETRIGGER:
+						configParms.timerOptions ^= 8;
 						break;
 					case MENU_TIMERBOOT:
 						configParms.timerOptions ^= 1;
@@ -1136,9 +1140,7 @@ salva:
 #if !defined(__XC8)
 						char *p=(char *)&configParms.currentTime;
 						BYTE i;
-					  showChar('S',2,1);
-					  showChar('S',1,1);
-					  showChar('S',0,1);
+					  showText("SSS");
 						for(i=0; i<sizeof(configParms.currentTime); i++) {
 							EEscrivi_(p,*p);
 							p++;
@@ -1148,8 +1150,8 @@ salva:
 							EEscrivi_(p,*p);
 							p++;
 							}
-						EEscrivi_(configParms.timerUnit,configParms.timerUnit);
-						EEscrivi_(configParms.timerOptions,configParms.timerOptions);
+						EEscrivi_(&configParms.timerUnit,configParms.timerUnit);
+						EEscrivi_(&configParms.timerOptions,configParms.timerOptions);
 						p=(char *)&configParms.timerCount;
 						for(i=0; i<sizeof(configParms.timerCount); i++) {
 							EEscrivi_(p,*p);
@@ -1162,24 +1164,40 @@ salva:
 							Beep();
 						else
 							Delay_S_(10);
-						MenuMode=0;
+						MenuMode=MENU_TIMER;
 						inEdit=0;
 						}
 						break;
 					}
 				}		// inEdit
 			else {
-				if(!(configParms.timerOptions & 2) || TimerCount==0) {		// protect (modifiche in corsa)
-					inEdit=1;
-					MenuMode=1;
+				if(!(configParms.timerOptions & 2)) {		// protect (azzeramento)
+	//				if(configParms.timerOptions & 16) {		// resettabile
+					if(TimerCount) {
+						TimerCount=0;
+						PIE2bits.TMR3IE=0;
+						goto fine_sw3;
+						}
 					}
 				}
 
 			}		// sw2
-		if(!sw1) {
+
+		if(!sw1) {		// sw1: fa partire timer (ev. anche stop)
 
 			if(oldSw & 1) {
-				TimerCount=configParms.timerCount;
+				if(!inEdit) {
+					if(!TimerCount) {
+retrigger:
+						StartTimer();
+						goto fine_sw1;
+						}
+					else {
+						if(configParms.timerOptions & 8) {		// retriggerabile
+							goto retrigger;
+							}
+						}
+					}
 				}
 
 
@@ -1187,7 +1205,7 @@ salva:
 			if((oldSw & 1) || (repeatCounter>4)) {		// x gestire click prolungato
 				MenuMode++;
 				if(MenuMode==MENU_MAX) {
-					MenuMode=0;
+					MenuMode=MENU_TIMER;
 					if(inEdit) {
 						inEdit=0;
   					goto salva;
@@ -1198,17 +1216,15 @@ salva:
 		else {
 			repeatCounter=0;
 			}
+fine_sw1:
 #else
 		if(!sw3) {
-
-			if(!(configParms.timerOptions & 2)) {		// protect (azzeramento)
-				}
 
 			repeatCounter++;
 			if((oldSw & 4) || (repeatCounter>4)) {		// x gestire click prolungato
 				MenuMode++;
 				if(MenuMode==MENU_MAX) {
-					MenuMode=0;
+					MenuMode=MENU_TIMER;
 					if(inEdit) {
 						inEdit=0;
 #ifndef USA_USB
@@ -1221,14 +1237,47 @@ salva:
 		else {
 			repeatCounter=0;
 			}
+				goto fine_sw3;
 #endif
   
 		switch(MenuMode) {
-			case 0:
-				if(configParms.timerUnit)
-			  	showNumbers(TimerCount/10,1);
-				else
-			  	showNumbers(TimerCount,0);
+			case MENU_NOEDIT:
+				break;
+			case MENU_TIMER:
+				if(TimerCount) {			// durante il conteggio mostro il contatore
+					if(configParms.timerUnit)			// aggiungere nel caso..
+				  	showNumbers(TimerCount,1);
+					else
+				  	showNumbers(TimerCount,0);
+					if(TickGet() & 2) {
+						Displays[0] |= 0b10000000;
+						Displays[1] |= 0b10000000;
+						Displays[2] |= 0b10000000;
+						}
+					oldMode=1;
+					}
+				else {			// a riposo mostro impostazione...
+					if(oldMode) {
+						blinkCounter=6;
+						}
+					if(blinkCounter) {			// lampeggio un po' a fine conteggio! SFX
+						if(blinkCounter & 1)
+				  		showNumbers(TimerCount,0);
+						else {
+							showText("---");
+							}
+						blinkCounter--;
+						}
+					else {
+						if(configParms.timerUnit)			// aggiungere nel caso..
+					  	showNumbers(configParms.timerCount,1);
+						else
+					  	showNumbers(configParms.timerCount,0);
+						if(inEdit)
+							Displays[0] |= 0b10000000;
+						}
+					oldMode=0;
+					}
 				break;
 			case MENU_ORA:
 			  showChar('0'+(configParms.currentTime.hour % 10),2,0);
@@ -1260,11 +1309,55 @@ salva:
 			  showChar('0'+(configParms.currentDate.year / 10),1,0);
 			  showChar('A',0,inEdit);
 				break;
-			}		//inEdit
+			case MENU_TIMERUNIT:
+				switch(configParms.timerUnit) {		// ev. altre...
+					case 0:
+				  	showText("SEC");
+						break;
+					case 1:
+				  	showText("DEC");
+						break;
+					}
+				if(inEdit)
+					Displays[0] |= 0b10000000;
+				break;
+			case MENU_TIMERMODE:
+				if(configParms.timerOptions & 4) 		// relè on quando timer finito, 
+			  	showText("TON");
+				else 					// relè on mentre timer conta
+			  	showText("TOF");
+				if(inEdit)
+					Displays[0] |= 0b10000000;
+				break;
+			case MENU_TIMERRETRIGGER:
+				if(configParms.timerOptions & 8)
+			  	showText("RON");
+				else
+			  	showText("ROF");
+				if(inEdit)
+					Displays[0] |= 0b10000000;
+				break;
+			case MENU_TIMERBOOT:
+				if(configParms.timerOptions & 1)
+			  	showText("BON");
+				else
+			  	showText("BOF");
+				if(inEdit)
+					Displays[0] |= 0b10000000;
+				break;
+			case MENU_TIMERPROTECT:
+				if(configParms.timerOptions & 2)
+			  	showText("PON");
+				else
+			  	showText("POF");
+				if(inEdit)
+					Displays[0] |= 0b10000000;
+				break;
+			}		//MenuMode
 
 		if(inEditTime) {
 			if(!--inEditTime) {
-				MenuMode=0;
+				MenuMode=MENU_TIMER;
 				if(inEdit) {
 					inEdit=0;
 #ifndef USA_USB
@@ -1274,13 +1367,21 @@ salva:
 				}
 			}
 
-	if(!sw3 && (oldSw & 4)) {
-			Beep();		// tanto per prova!!
-			}
-		if(!sw3)
+		if(!sw3 && (oldSw & 4)) {			// sw3: entro in Edit (ev. esco, ma v. sopra)
+
+			if(!(configParms.timerOptions & 2) || TimerCount==0) {		// protect (modifiche in corsa)
+				inEdit=1;
+				MenuMode=MENU_TIMER;
+				}
+// else?? boh no						inEdit=0;
+
+			}		//sw3
+fine_sw3:
+/*		if(!sw3)
 			dim=1;		// tanto per prova!!
+//			Beep();		// tanto per prova!!
 		else
-			dim=0;
+			dim=0;*/
 
 		if(cnt >= 10   /*150*/) {			// 2 secondi QUA ...
 			cnt=0;
@@ -1333,6 +1434,22 @@ salva:
 		ClrWdt();
 		}
 
+	}
+
+void StartTimer(void) {
+
+	TimerCount=configParms.timerCount;
+	switch(configParms.timerUnit) {		// ev. altre...
+		case 0:
+			Tmr3Base=TMR3BASE_1;
+			break;
+		case 1:
+			Tmr3Base=TMR3BASE_10;
+			break;
+		}
+	WriteTimer3(Tmr3Base);
+	PIE2bits.TMR3IE=1;
+	MenuMode=MENU_TIMER;		// sì!
 	}
 
 void Beep(void) {
@@ -2034,7 +2151,7 @@ BYTE uitoa(WORD Value, char *Buffer) {
 	char *oldBuffer=Buffer;
 
 	if(Value)	{
-		for(i=0, Divisor = 10000; i < 5u; i++) {
+		for(i=0, Divisor=10000; i<5; i++) {
 			Digit = Value/Divisor;
 			if(Digit || Printed) {
 				*Buffer++ = '0' + Digit;
@@ -2063,7 +2180,7 @@ void showChar(char n,BYTE pos,BYTE dp) {
 		Displays[pos]=table_7seg[n-'A'+11+1];
 	else if(n>=58 && n<=63)		// hex
 		Displays[pos]=table_7seg[n-58+11+1];
-	else if(!n)
+	else if(!n || n==' ')
 		Displays[pos]=table_7seg[0];
 	if(dp)
 		Displays[pos] |= 0b10000000;
@@ -2089,11 +2206,17 @@ void showNumbers(int n,BYTE prec) {
 		}
 	}
 
-void showText(char *s) {
+void showText(const rom char *s) {
 
-	showChar(s[0],0,0);
-	showChar(s[1],1,0);
-	showChar(s[2],2,0);
+	showChar(*s++,0,0);
+	if(*s) {
+		showChar(*s++,1,0);
+		showChar(*s,2,0);		// questo è ok cmq!
+		}
+	else {
+		showChar(0,1,0);
+		showChar(0,2,0);
+		}
 	}
 
 

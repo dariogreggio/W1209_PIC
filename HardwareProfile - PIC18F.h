@@ -77,15 +77,13 @@
     //  final application design.
 
 #if defined(USA_USB) // v. sopra
-
     #define CLOCK_FREQ 48000000L
     #define GetSystemClock() CLOCK_FREQ   
-
+		#define GetPeripheralClock() (CLOCK_FREQ/4)
 #else
-
     #define CLOCK_FREQ 8000000L
     #define GetSystemClock() CLOCK_FREQ   
-
+		#define GetPeripheralClock() (CLOCK_FREQ/4)
 #endif
 
     /** LED ************************************************************/
@@ -105,9 +103,15 @@
     #define mInitSwitch2()      // fisso TRISAbits.TRISA1=1;
     #define mInitSwitch3()      // fisso TRISAbits.TRISA0=1;
     #define mInitAllSwitches()  mInitSwitch1();mInitSwitch2();mInitSwitch3();
+#ifndef __DEBUG
     #define sw1                 PORTAbits.RA1
     #define sw2                 PORTAbits.RA0
 		#define sw3                 PORTAbits.RA3
+#else	// simulatore non va per questi @#£$%
+    #define sw1                 SW[0]
+    #define sw2                 SW[1]
+		#define sw3                 SW[2]
+#endif
 
     #define m_I2CClkBit           LATCbits.LATC0
     #define m_I2CDataBit          LATCbits.LATC1

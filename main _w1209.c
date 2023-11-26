@@ -12,7 +12,7 @@
  Software License Agreement:
 
  The software supplied herewith by Microchip Technology Incorporated
- (the ?Company?) for its PIC® Microcontroller is intended and
+ (the Company) for its PIC® Microcontroller is intended and
  supplied to you, the Company?s customer, for use solely and
  exclusively on Microchip PIC Microcontroller products. The
  software is owned by the Company and/or its supplier, and is
@@ -59,6 +59,9 @@ W1209 termostato clone
 #include <portb.h>
 #include <adc.h>
 //#include <outcompare.h>
+#else
+//#include "Flash.h"
+#include "HEFlash.h"
 #endif
 
 #include "w1209_pic.h"
@@ -165,7 +168,7 @@ const rom char data7=0x00u;
 
 
 /** VARIABLES ******************************************************/
-#ifdef USA_USB
+#if defined(__18CXX)
 #pragma udata
 #endif
 
@@ -190,7 +193,7 @@ static const rom char CopyrString[]= {'T','e','r','m','o','s','t','a','t','o',' 
 #ifdef USA_USB
 'c','o','n',' ','U','S','B',' ',
 #endif
-	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','3','1','/','1','0','/','2','3', 0 };
+	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','2','6','/','1','1','/','2','3', 0 };
 
 const rom BYTE table_7seg[]={ 0, 	//PGFEDCBA
 													0b00111111,0b00000110,0b01011011,0b01001111,0b01100110,
@@ -276,8 +279,8 @@ USB_HANDLE USBInHandle = 0;
 
 
 BYTE InAlert=FALSE,USBOn=FALSE,MenuMode=0;
-int Temperature=200,oldTemperature=200,tempThreshold=200;
-extern signed char clock_correction;
+int Temperature=200,oldTemperature=200;
+struct SAVED_PARAMETERS configParms;
 
 #if defined(__18CXX)
 #ifndef __EXTENDED18__
@@ -297,18 +300,18 @@ volatile unsigned char Displays[3];			// 3 display
 #pragma udata gpr0
 #endif
 volatile BYTE dim=FALSE;
-BYTE CelsiusFahrenheit=0,tempThresholdDirection=0 /* > */;
+BYTE CelsiusFahrenheit=0;
 BYTE Buzzer=0;
 WORD logInterval=300 /*2 decimi*/;
 static BYTE firstPassDisplay=8;
 volatile WORD tick10=0;
 volatile BYTE second_10=0;
 #if defined(__XC8)
-volatile PIC24_RTCC_DATE currentDate;
-volatile PIC24_RTCC_TIME currentTime;
+//volatile PIC24_RTCC_DATE currentDate;
+//volatile PIC24_RTCC_TIME currentTime;
 #else
-volatile PIC24_RTCC_DATE currentDate={0,0,0};
-volatile PIC24_RTCC_TIME currentTime={0,0,0};
+//volatile PIC24_RTCC_DATE currentDate={0,0,0};
+//volatile PIC24_RTCC_TIME currentTime={0,0,0};
 #endif
 const BYTE dayOfMonth[12]={31,28,31,30,31,30,31,31,30,31,30,31};
 volatile DWORD milliseconds;
@@ -334,25 +337,25 @@ void bumpClock(void) {
 
 	while(milliseconds >= 1000) {
 		milliseconds -= 1000;
-		currentTime.sec++;
-		if(currentTime.sec >= 60) {
-			currentTime.sec=0;
-			currentTime.min++;
-			if(currentTime.min >= 60) {
-				currentTime.min=0;
-				currentTime.hour++;
-				if(currentTime.hour >= 24) {
-					currentTime.hour=0;
-					currentDate.mday++;
-					i=dayOfMonth[currentDate.mon-1];
-					if((i==28) && !(currentDate.year % 4))
+		configParms.currentTime.sec++;
+		if(configParms.currentTime.sec >= 60) {
+			configParms.currentTime.sec=0;
+			configParms.currentTime.min++;
+			if(configParms.currentTime.min >= 60) {
+				configParms.currentTime.min=0;
+				configParms.currentTime.hour++;
+				if(configParms.currentTime.hour >= 24) {
+					configParms.currentTime.hour=0;
+					configParms.currentDate.mday++;
+					i=dayOfMonth[configParms.currentDate.mon-1];
+					if((i==28) && !(configParms.currentDate.year % 4))
 						i++;
-					if(currentDate.mday > i) {		// (rimangono i secoli...)
-						currentDate.mday=0;
-						currentDate.mon++;
-						if(currentDate.mon >= 12) {		// 
-							currentDate.mon=1;
-							currentDate.year++;
+					if(configParms.currentDate.mday > i) {		// (rimangono i secoli...)
+						configParms.currentDate.mday=0;
+						configParms.currentDate.mon++;
+						if(configParms.currentDate.mon >= 12) {		// 
+							configParms.currentDate.mon=1;
+							configParms.currentDate.year++;
 							}
 						}
 					}
@@ -596,13 +599,13 @@ static void InitializeSystem(void) {
 
 #if defined(__XC8)
 //	T0CON=0b00000011;								//
-  OPTION_REG=0b00000101;    // pullup; prescaler 1:64
+  OPTION_REG=0b00000100;    // pullup; prescaler 1:32
 	T1CON=0b00110001;								// prescaler 1:8
 	INTCONbits.T0IE = 1;
 	PIE1bits.TMR1IE = 1;
 #else
-	OpenTimer0(TIMER_INT_ON & T0_8BIT & T0_SOURCE_INT & T0_PS_1_64);
-										// (la frequenza di TMR0 e' 48/4MHz, divido per 64 )
+	OpenTimer0(TIMER_INT_ON & T0_8BIT & T0_SOURCE_INT & T0_PS_1_32);
+										// (la frequenza di TMR0 e' 48/4MHz, divido per 32 )
 
 	OpenTimer1(TIMER_INT_ON & T1_16BIT_RW & T1_SOURCE_INT & T1_PS_1_8 & T1_OSC1EN_OFF & T1_SYNC_EXT_OFF );
 #endif
@@ -680,38 +683,47 @@ int UserInit(void) {
 		}
 
 	{
-	char *p=(char *)&currentTime;
+	char *p=(char *)&configParms.currentTime;
 	BYTE i;
-	for(i=0; i<sizeof(currentTime); i++) {
+	for(i=0; i<sizeof(configParms.currentTime); i++) {
 		*p=EEleggi(p);
 		p++;
 		}
-	p=(char *)&currentDate;
-	for(i=0; i<sizeof(currentDate); i++) {
+	p=(char *)&configParms.currentDate;
+	for(i=0; i<sizeof(configParms.currentDate); i++) {
 		*p=EEleggi(p);
 		p++;
 		}
-	p=(char *)&tempThreshold;
-	for(i=0; i<sizeof(tempThreshold); i++) {
+	p=(char *)&configParms.tempThreshold;
+	for(i=0; i<sizeof(configParms.tempThreshold); i++) {
 		*p=EEleggi(p);
 		p++;
 		}
-	tempThresholdDirection=EEleggi(&tempThresholdDirection);
+	configParms.tempThresholdDirection=EEleggi(&configParms.tempThresholdDirection);
 	}
 
-	if(currentTime.sec==255) {
-		currentTime.sec=0;
-		currentTime.min=0;
-		currentTime.hour=12;
-		currentDate.mday=17;
-		currentDate.mon=8;
-		currentDate.year=23;
-		tempThreshold=200;
+	if(configParms.currentTime.sec==255) {
+		configParms.currentTime.sec=0;
+		configParms.currentTime.min=0;
+		configParms.currentTime.hour=12;
+		configParms.currentDate.mday=17;
+		configParms.currentDate.mon=8;
+		configParms.currentDate.year=23;
+		configParms.tempThreshold=200;
+		configParms.tempThresholdDirection=0;
+		configParms.clock_correction=0;
+//		configParms.CelsiusFahrenheit=0;
+//		configParms.Buzzer=0;
+//		configParms.logInterval=60;
 
-		EEscrivi_(&clock_correction,clock_correction);
+#if !defined(__XC8)
+		EEscrivi_(&configParms.clock_correction,configParms.clock_correction);
+#else
+    HEFLASH_writeBlock(0,&configParms,sizeof(struct SAVED_PARAMETERS));
+#endif
 		}
 
-	clock_correction=EEleggi(&clock_correction);
+	configParms.clock_correction=EEleggi(&configParms.clock_correction);
 
 
 #ifdef USA_USB
@@ -804,9 +816,9 @@ void ProcessIO(void) {
 				ToSendDataBuffer[7]=HIBYTE(logInterval);
 				ToSendDataBuffer[8]=Buzzer;
 
-				ToSendDataBuffer[26]=LOBYTE(tempThreshold);
-				ToSendDataBuffer[27]=HIBYTE(tempThreshold);
-				ToSendDataBuffer[28]=tempThresholdDirection;
+				ToSendDataBuffer[26]=LOBYTE(configParms.tempThreshold);
+				ToSendDataBuffer[27]=HIBYTE(configParms.tempThreshold);
+				ToSendDataBuffer[28]=configParms.tempThresholdDirection;
 
 				sendEP1();
 				break;
@@ -817,6 +829,8 @@ void ProcessIO(void) {
 				ToSendDataBuffer[3]=0;
 				ToSendDataBuffer[5]=USBOn;
 //				ToSendDataBuffer[6]=batteryState;
+				ToSendDataBuffer[6]=(sw1 ? 0 : 1) | (sw2 ? 0 : 2) | (sw3 ? 0 : 4);
+
 				ToSendDataBuffer[13]=InAlert;
 
 				ToSendDataBuffer[24]=LOBYTE(Temperature);
@@ -829,8 +843,8 @@ void ProcessIO(void) {
 				prepOutBuffer(CMD_SETSTATUS);					// indicatore
 //				USBOn=ReceivedDataBuffer[5];		 :)
 				InAlert=ReceivedDataBuffer[13];				// idem
-				tempThreshold=MAKEWORD(ReceivedDataBuffer[26],ReceivedDataBuffer[27]);
-				tempThresholdDirection=ReceivedDataBuffer[28];
+				configParms.tempThreshold=MAKEWORD(ReceivedDataBuffer[26],ReceivedDataBuffer[27]);
+				configParms.tempThresholdDirection=ReceivedDataBuffer[28];
 
 				sendEP1();
 				break;
@@ -906,12 +920,12 @@ void ProcessIO(void) {
 			case CMD_READRTC:			// lettura RTC
 				prepOutBuffer(CMD_READRTC);			// indicatore
 
-  			ToSendDataBuffer[3]=currentDate.mday;		// UNIFORMARE CON SKYUSB!
-		    ToSendDataBuffer[4]=currentDate.mon;
-		    ToSendDataBuffer[5]=currentDate.year;
-		    ToSendDataBuffer[6]=currentTime.hour;
-		    ToSendDataBuffer[7]=currentTime.min;
-		    ToSendDataBuffer[8]=currentTime.sec;
+  			ToSendDataBuffer[3]=configParms.currentDate.mday;		// UNIFORMARE CON SKYUSB!
+		    ToSendDataBuffer[4]=configParms.currentDate.mon;
+		    ToSendDataBuffer[5]=configParms.currentDate.year;
+		    ToSendDataBuffer[6]=configParms.currentTime.hour;
+		    ToSendDataBuffer[7]=configParms.currentTime.min;
+		    ToSendDataBuffer[8]=configParms.currentTime.sec;
 		 
 				sendEP1();
 				break;
@@ -920,17 +934,17 @@ void ProcessIO(void) {
 				prepOutBuffer(CMD_WRITERTC);			// indicatore
 
 				i=ReceivedDataBuffer[3];		// UNIFORMARE CON SKYUSB e GSMDEV!
-		    currentDate.mday=i;
+		    configParms.currentDate.mday=i;
 				i=ReceivedDataBuffer[4];
-				currentDate.mon=i;
+				configParms.currentDate.mon=i;
 				i=ReceivedDataBuffer[5];
-				currentDate.year=i;			// -2000
+				configParms.currentDate.year=i;			// -2000
 				i=ReceivedDataBuffer[6];
-	  	  currentTime.hour=i;
+	  	  configParms.currentTime.hour=i;
 				i=ReceivedDataBuffer[7];
-				currentTime.min=i;
+				configParms.currentTime.min=i;
 				i=ReceivedDataBuffer[8];
-				currentTime.sec=i;
+				configParms.currentTime.sec=i;
 	
 
 				sendEP1();
@@ -981,7 +995,7 @@ void UserTasks(void) {
 	static WORD cnt=0,cnt2=0;
 
 
-	if(second_10) {			// 200 mSec qua...
+	if(second_10) {			// 500 mSec qua...
 		second_10=0;
 
 		cnt++;
@@ -1017,9 +1031,7 @@ return;*/
 		if(firstPassDisplay) {			// lascia Splash per un po'..
 			firstPassDisplay--;
 			if(firstPassDisplay>6) {
-				showChar('-',0,0);
-				showChar('-',1,0);
-				showChar('-',2,0);
+				showText("---");
 				Beep();			
 				}
 			else if(firstPassDisplay>3) {
@@ -1052,7 +1064,7 @@ return;*/
 #ifndef USA_USB
 		if(USBOn || !sw1 || !sw2 || !sw3) {
 	ClrWdt();
-			inEditTime=40;			// 8 sec per timeout
+			inEditTime=16;			// 8 sec per timeout
 			}
 #endif
 
@@ -1063,67 +1075,69 @@ return;*/
 					case 0:
 						break;
 					case MENU_ORA:
-					  currentTime.hour++;
-					  if(currentTime.hour>=24)
-						  currentTime.hour=0;
+					  configParms.currentTime.hour++;
+					  if(configParms.currentTime.hour>=24)
+						  configParms.currentTime.hour=0;
 						break;
 					case MENU_MINUTI:
-					  currentTime.min++;
-					  if(currentTime.min>=60)
-						  currentTime.min=0;
+					  configParms.currentTime.min++;
+					  if(configParms.currentTime.min>=60)
+						  configParms.currentTime.min=0;
 						break;
 					case MENU_SECONDI:
-					  currentTime.sec=0;			// direi :)
+					  configParms.currentTime.sec=0;			// direi :)
 						break;
 					case MENU_GIORNO:
-					  currentDate.mday++;
-						i=dayOfMonth[currentDate.mon-1];
-						if((i==28) && !(currentDate.year % 4))
+					  configParms.currentDate.mday++;
+						i=dayOfMonth[configParms.currentDate.mon-1];
+						if((i==28) && !(configParms.currentDate.year % 4))
 							i++;
-						if(currentDate.mday > i) 		// (rimangono i secoli...)
-						  currentDate.mday=1;
+						if(configParms.currentDate.mday > i) 		// (rimangono i secoli...)
+						  configParms.currentDate.mday=1;
 						break;
 					case MENU_MESE:
-					  currentDate.mon++;
-					  if(currentDate.mon>=12)
-						  currentDate.mon=1;
+					  configParms.currentDate.mon++;
+					  if(configParms.currentDate.mon>=12)
+						  configParms.currentDate.mon=1;
 						break;
 					case MENU_ANNO:
-					  currentDate.year++;
-					  if(currentDate.year>=100)
-						  currentDate.year=0;
+					  configParms.currentDate.year++;
+					  if(configParms.currentDate.year>=100)
+						  configParms.currentDate.year=0;
 						break;
 					case MENU_SOGLIA:
-					  tempThreshold+=10;
-					  if(tempThreshold>=1000)
-						  tempThreshold=-200;
+					  configParms.tempThreshold+=10;
+					  if(configParms.tempThreshold>=1000)
+						  configParms.tempThreshold=-200;
 						break;
 					case MENU_DIREZIONESOGLIA:
-						tempThresholdDirection=!tempThresholdDirection;
+						configParms.tempThresholdDirection=!configParms.tempThresholdDirection;
 						break;
 					case MENU_MAX:
 salva:
 						{
-						char *p=(char *)&currentTime;
+#if !defined(__XC8)
+						char *p=(char *)&configParms.currentTime;
 						BYTE i;
-					  showChar('S',2,1);
-					  showChar('S',1,1);
-					  showChar('S',0,1);
-						for(i=0; i<sizeof(currentTime); i++) {
+						showText("SSS");
+						for(i=0; i<sizeof(configParms.currentTime); i++) {
 							EEscrivi_(p,*p);
 							p++;
 							}
-						p=(char *)&currentDate;
-						for(i=0; i<sizeof(currentDate); i++) {
+						p=(char *)&configParms.currentDate;
+						for(i=0; i<sizeof(configParms.currentDate); i++) {
 							EEscrivi_(p,*p);
 							p++;
 							}
-						p=(char *)&tempThreshold;
-						for(i=0; i<sizeof(tempThreshold); i++) {
+						p=(char *)&configParms.tempThreshold;
+						for(i=0; i<sizeof(configParms.tempThreshold); i++) {
 							EEscrivi_(p,*p);
 							p++;
 							}
-						EEscrivi_(tempThresholdDirection,tempThresholdDirection);
+						EEscrivi_(configParms.tempThresholdDirection,configParms.tempThresholdDirection);
+#else
+            HEFLASH_writeBlock(0,&configParms,sizeof(struct SAVED_PARAMETERS));
+#endif
 						if(Buzzer)
 							Beep();
 						else
@@ -1148,11 +1162,30 @@ salva:
 					MenuMode=0;
 					if(inEdit) {
 						inEdit=0;
-						goto salva;
+  					goto salva;
 						}
 					}
 				}
 			}		//sw1
+		else {
+			repeatCounter=0;
+			}
+#else
+		if(!sw3) {
+			repeatCounter++;
+			if((oldSw & 4) || (repeatCounter>4)) {		// x gestire click prolungato
+				MenuMode++;
+				if(MenuMode==MENU_MAX) {
+					MenuMode=0;
+					if(inEdit) {
+						inEdit=0;
+#ifndef USA_USB
+  					goto salva;
+#endif
+						}
+					}
+				}
+			}		//sw3 qua
 		else {
 			repeatCounter=0;
 			}
@@ -1167,53 +1200,53 @@ salva:
 				  	showNumbers(Temperature,1);
 					}
 				else {
-				  showChar('E',2,0);
-				  showChar('E',1,0);
-				  showChar('E',0,0);
+					showText("EEE");
 					}
 				break;
 			case MENU_ORA:
-			  showChar('0'+(currentTime.hour % 10),2,0);
-			  showChar('0'+(currentTime.hour / 10),1,0);
+			  showChar('0'+(configParms.currentTime.hour % 10),2,0);
+			  showChar('0'+(configParms.currentTime.hour / 10),1,0);
 			  showChar('O',0,inEdit); 
 				break;
 			case MENU_MINUTI:
-			  showChar('0'+(currentTime.min % 10),2,0);
-			  showChar('0'+(currentTime.min / 10),1,0);
+			  showChar('0'+(configParms.currentTime.min % 10),2,0);
+			  showChar('0'+(configParms.currentTime.min / 10),1,0);
 			  showChar('M',0,inEdit);
 				break;
 			case MENU_SECONDI:
-			  showChar('0'+(currentTime.sec % 10),2,0);
-			  showChar('0'+(currentTime.sec / 10),1,0);
+			  showChar('0'+(configParms.currentTime.sec % 10),2,0);
+			  showChar('0'+(configParms.currentTime.sec / 10),1,0);
 			  showChar('S',0,inEdit);
 				break;
 			case MENU_GIORNO:
-			  showChar('0'+(currentDate.mday % 10),2,0);
-			  showChar('0'+(currentDate.mday / 10),1,0);
+			  showChar('0'+(configParms.currentDate.mday % 10),2,0);
+			  showChar('0'+(configParms.currentDate.mday / 10),1,0);
 			  showChar('G',0,inEdit);
 				break;
 			case MENU_MESE:
-			  showChar('0'+(currentDate.mon % 10),2,0);
-			  showChar('0'+(currentDate.mon / 10),1,0);
+			  showChar('0'+(configParms.currentDate.mon % 10),2,0);
+			  showChar('0'+(configParms.currentDate.mon / 10),1,0);
 			  showChar('N',0,inEdit);			// sembra m minuscola :)
 				break;
 			case MENU_ANNO:
-			  showChar('0'+(currentDate.year % 10),2,0);
-			  showChar('0'+(currentDate.year / 10),1,0);
+			  showChar('0'+(configParms.currentDate.year % 10),2,0);
+			  showChar('0'+(configParms.currentDate.year / 10),1,0);
 			  showChar('A',0,inEdit);
 				break;
 			case MENU_SOGLIA:
-			  showNumbers(tempThreshold,1);
+			  showNumbers(configParms.tempThreshold,1);
 				break;
 			case MENU_DIREZIONESOGLIA:
-				if(tempThresholdDirection) {		// relè on quando T è <, ossia tende a scaldare
-				  showChar('H',2,0);
+				if(configParms.tempThresholdDirection) {		// relè on quando T è <, ossia tende a scaldare
+//				  showChar('H',2,0);
+					showText("D H");
 					}
 				else {					// relè on quando T è >, ossia tende a raffreddare
-				  showChar('L',2,0);
+//				  showChar('L',2,0);
+					showText("D L");
 					}
-			  showChar(0,1,0);
-			  showChar('D',0,inEdit);
+//			  showChar(0,1,0);
+//			  showChar('D',0,inEdit);
 				break;
 			}		//inEdit
 
@@ -1272,10 +1305,10 @@ salva:
 				Temperature=((unsigned int)(Temperature/5))*5;
 				oldTemperature=Temperature;
 #endif
-				if(!tempThresholdDirection)
-					InAlert=Temperature > tempThreshold;			// vale fahrenheit o celsius a seconda!
+				if(!configParms.tempThresholdDirection)
+					InAlert=Temperature > configParms.tempThreshold;			// vale fahrenheit o celsius a seconda!
 				else 
-					InAlert=Temperature < tempThreshold;
+					InAlert=Temperature < configParms.tempThreshold;
 				if(InAlert) {
 					m_Rele=1;
 					if(Buzzer) {
@@ -1429,11 +1462,14 @@ WORD EEleggiWord(SHORTPTR addr) {			// usare void * ?
 	}
 #else
 void EEscrivi_(SHORTPTR addr,BYTE n) {		// usare void * ?
-#warning FARE eeprom
+  
+  HEFLASH_writeBlock(addr, &n, 1);    // si potrebbero unire più byte per ottimizzare...
+#warning NON CREDO FUNZIONI COSì serve un blocco!! tipo configParms
   }
 BYTE EEleggi(SHORTPTR addr) {			// usare void * ?
 
-	}
+  return HEFLASH_readByte(0,addr);
+  }
 #endif
 
 // -------------------------------------------------------------------------------------
@@ -2081,7 +2117,7 @@ void showChar(char n,BYTE pos,BYTE dp) {
 		Displays[pos]=table_7seg[n-'A'+11+1];
 	else if(n>=58 && n<=63)		// hex
 		Displays[pos]=table_7seg[n-58+11+1];
-	else if(!n)
+	else if(!n || n==' ')
 		Displays[pos]=table_7seg[0];
 	if(dp)
 		Displays[pos] |= 0b10000000;
@@ -2107,11 +2143,17 @@ void showNumbers(int n,BYTE prec) {
 		}
 	}
 
-void showText(char *s) {
+void showText(const rom char *s) {
 
-	showChar(s[0],0,0);
-	showChar(s[1],1,0);
-	showChar(s[2],2,0);
+	showChar(0,*s++,0);
+	if(*s) {
+		showChar(0,*s++,1);
+		showChar(0,*s,2);		// questo è ok cmq!
+		}
+	else {
+		showChar(0,0,1);
+		showChar(0,0,2);
+		}
 	}
 
 

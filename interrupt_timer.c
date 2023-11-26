@@ -20,7 +20,7 @@ void YourLowPriorityISRCode(void);
 
 
 extern volatile BYTE dim;
-extern volatile WORD tick10;
+extern volatile WORD tick10,TimerCount,Tmr3Base;
 extern volatile BYTE second_10;
 volatile BYTE divider1s;
 extern volatile DWORD milliseconds;
@@ -301,10 +301,12 @@ void interrupt YourHighPriorityISRCode() {		//
 #pragma interruptlow YourLowPriorityISRCode
 void YourLowPriorityISRCode()	{
 
-//	if(PIE1bits.TMR1IE && PIR1bits.TMR1IF) {
+		//Check which interrupt flag caused the interrupt.
+		//Service the interrupt
+		//Clear the interrupt flag
+		//Etc.
 
-	if(PIR1bits.TMR1IF) {				// Timer 1 ..  
-		PIR1bits.TMR1IF=0;					// clear bit IRQ
+	if(PIE1bits.TMR1IE && PIR1bits.TMR1IF) {		// Timer 1 ..  
 
 //2 mS 27/11/10 @ 44Mhz
 //	WriteTimer1(TMR1BASE);					// inizializzo TMR1
@@ -312,13 +314,9 @@ void YourLowPriorityISRCode()	{
 		TMR1H=TMR1BASE/256;
 		TMR1L=TMR1BASE & 255;
 
-		//Check which interrupt flag caused the interrupt.
-		//Service the interrupt
-		//Clear the interrupt flag
-		//Etc.
 
 
-// 100.000 mSec 2/8/23 #leucemiafitch
+// 100.000 mSec 2/8/23 
 // 	mLED_1 ^= 1; //check timer	
 // dev'essere 10Hz
 
@@ -326,8 +324,8 @@ void YourLowPriorityISRCode()	{
 	tick10++;
 	divider1s++;
 
-	if(divider1s == 5 || divider1s == 10)
-		second_10=1;					// flag; 500mS per debounce migliore!
+//	if(divider1s & 1)
+		second_10=1;					// flag; 100mS 
 	if(divider1s==10) {		// per RealTimeClock
 		divider1s=0;
 #ifdef USA_SW_RTC 
@@ -337,9 +335,25 @@ void YourLowPriorityISRCode()	{
 		}
 
 
-		PIR1bits.TMR1IF = 0;
+		PIR1bits.TMR1IF=0;					// clear bit IRQ
 //		}
 
+		}
+
+	if(PIE2bits.TMR3IE && PIR2bits.TMR3IF) {		// Timer 3 .. 
+		static BYTE divider; 		// max prescaler è 1:8 ...
+		TMR3H=Tmr3Base/256;
+		TMR3L=Tmr3Base & 255;
+		divider++;
+		if(divider>=10) {
+			divider=0;
+			TimerCount--;
+			if(!TimerCount) {
+				PIE2bits.TMR3IE=0;
+				}
+			}
+
+		PIR2bits.TMR3IF=0;					// clear bit IRQ
 		}
 	}
 #endif
