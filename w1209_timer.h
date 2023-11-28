@@ -4,7 +4,7 @@
 
 #define SERNUM      1000
 #define VERNUMH     1
-#define VERNUML     0
+#define VERNUML     2
 
 
 //#define FLASH_TIME 7
@@ -132,7 +132,8 @@ struct __attribute__((__packed__)) SAVED_PARAMETERS {
 	WORD timerCount;
 	BYTE timerUnit /* 0,1,... */;
 	signed char clock_correction;
-	BYTE timerOptions;			// b0=boot; b1=protect; b2=mode; b3: retriggerabile; (b4: azzerabile SEMPRE se non protect)
+	BYTE timerOptions;			// b0=boot; b1=protect; b2=mode; b3: retriggerabile; (b4: azzerabile SEMPRE se non protect); 
+	BYTE timerExternalMode;
   };
 
 extern struct SAVED_PARAMETERS configParms;

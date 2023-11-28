@@ -182,17 +182,18 @@ BYTE SW[3]={1,1,1};
 enum EDITS {
 	MENU_NOEDIT=0,
 	MENU_TIMER,
+	MENU_TIMERUNIT,
+	MENU_TIMERMODE,
+	MENU_TIMERRETRIGGER,
+	MENU_TIMERBOOT,
+	MENU_TIMEREXTERNAL,
+	MENU_TIMERPROTECT,
 	MENU_SECONDI,
 	MENU_MINUTI,
 	MENU_ORA,
 	MENU_GIORNO,
 	MENU_MESE,
 	MENU_ANNO,
-	MENU_TIMERUNIT,
-	MENU_TIMERMODE,
-	MENU_TIMERRETRIGGER,
-	MENU_TIMERBOOT,
-	MENU_TIMERPROTECT,
 	MENU_MAX
 	};
 
@@ -201,7 +202,7 @@ static const rom char CopyrString[]= {'T','i','m','e','r',' ','W','1','2','0','9
 #ifdef USA_USB
 'c','o','n',' ','U','S','B',' ',
 #endif
-	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','2','6','/','1','1','/','2','3', 0 };
+	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','2','8','/','1','1','/','2','3', 0 };
 
 const rom BYTE table_7seg[]={ 0, 	//PGFEDCBA
 													0b00111111,0b00000110,0b01011011,0b01001111,0b01100110,
@@ -531,7 +532,7 @@ static void InitializeSystem(void) {
 #endif
 
 
-	TRISA = 0b00011011;		// led; AN0 o AN3 = RA4; pulsanti;
+	TRISA = 0b00011011;		// led; ev. AN0 o AN3 = RA4; pulsanti;
 	TRISB = 0b00000000;		// catodi; 
 	TRISC = 0b00000000;		// display; OLed-I2C; 
 //	ODCA  = 0b0000000010000000;		// open collector
@@ -545,7 +546,11 @@ static void InitializeSystem(void) {
 	LATB = 0b00000000;		// ; 
 	LATC = 0b00000000;		// 
 
+#ifdef USA_ANALOG
 	WPUA=0b00001011;			// usb cmq no...
+#else
+	WPUA=0b00011011;			// usb cmq no...; pullup su Ext (ana)
+#endif
 	WPUB=0b00000000;
 
 // https://forum.microchip.com/s/topic/a5C3l000000MCLJEA4/t277505 porcodio RA0 RA1
@@ -692,6 +697,9 @@ int UserInit(void) {
 
 	if(!sw1 && !sw2) {
 //				// tanto per :)
+		showText("RRR");
+		Delay_S_(10);
+		goto resetta;
 		}
 
 	{
@@ -709,9 +717,11 @@ int UserInit(void) {
 	configParms.timerCount=EEleggi(&configParms.timerCount);
 	configParms.timerUnit=EEleggi(&configParms.timerUnit);
 	configParms.timerOptions=EEleggi(&configParms.timerOptions);
+	configParms.timerExternalMode=EEleggi(&configParms.timerExternalMode);
 	}
 
 	if(configParms.currentTime.sec==255) {
+resetta:
 		configParms.currentTime.sec=0;
 		configParms.currentTime.min=0;
 		configParms.currentTime.hour=12;
@@ -721,6 +731,7 @@ int UserInit(void) {
 		configParms.timerCount=10;
 		configParms.timerUnit=0;
 		configParms.timerOptions=0;
+		configParms.timerExternalMode=1;		// mah sì
 		configParms.clock_correction=0;
 
 #if !defined(__XC8)
@@ -735,7 +746,7 @@ int UserInit(void) {
 	if(configParms.timerOptions & 1)
 		firstPassDisplay=0;
 	else
-		firstPassDisplay=40;
+		firstPassDisplay=20;
 
 #ifdef USA_USB
   //initialize the variable holding the handle for the last transmission
@@ -1035,11 +1046,11 @@ void UserTasks(void) {
 
 		if(firstPassDisplay) {			// lascia Splash per un po'..
 			firstPassDisplay--;
-			if(firstPassDisplay>32) {
+			if(firstPassDisplay>16) {
 				showText("---");
 				Beep();			
 				}
-			else if(firstPassDisplay>16) {
+			else if(firstPassDisplay>8) {
 #ifdef USA_USB
 				showChar(CopyrString[28],2,0);
 				showChar(CopyrString[26],1,1);
@@ -1073,120 +1084,32 @@ void UserTasks(void) {
 #ifndef USA_USB
 		if(USBOn || !sw1 || !sw2 || !sw3) {
 	ClrWdt();
-			inEditTime=40;			// 8 sec per timeout
+			inEditTime=80;			// 8 sec per timeout
+			}
+#endif
+
+
+#ifndef USA_ANALOG
+		switch(configParms.timerExternalMode) {
+			case 0:
+				break;
+			case 1:
+				if(!m_Ana)
+					goto do_start;
+				break;
+			case 2:
+				if(!m_Ana)
+					goto do_stop;
+				break;
 			}
 #endif
 
 #ifndef USA_USB
-		if(!sw2 && (oldSw & 2)) {			// sw2: modifica parametri se in Edit
-			if(inEdit) {
-				switch(MenuMode) {
-					case MENU_NOEDIT:
-						break;
-					case MENU_TIMER:
-					  configParms.timerCount++;
-						break;
-					case MENU_SECONDI:
-					  configParms.currentTime.sec=0;			// direi :)
-						break;
-					case MENU_MINUTI:
-					  configParms.currentTime.min++;
-					  if(configParms.currentTime.min>=60)
-						  configParms.currentTime.min=0;
-						break;
-					case MENU_ORA:
-					  configParms.currentTime.hour++;
-					  if(configParms.currentTime.hour>=24)
-						  configParms.currentTime.hour=0;
-						break;
-					case MENU_GIORNO:
-					  configParms.currentDate.mday++;
-						i=dayOfMonth[configParms.currentDate.mon-1];
-						if((i==28) && !(configParms.currentDate.year % 4))
-							i++;
-						if(configParms.currentDate.mday > i) 		// (rimangono i secoli...)
-						  configParms.currentDate.mday=1;
-						break;
-					case MENU_MESE:
-					  configParms.currentDate.mon++;
-					  if(configParms.currentDate.mon>=12)
-						  configParms.currentDate.mon=1;
-						break;
-					case MENU_ANNO:
-					  configParms.currentDate.year++;
-					  if(configParms.currentDate.year>=100)
-						  configParms.currentDate.year=0;
-						break;
-					case MENU_TIMERUNIT:
-						configParms.timerUnit++;
-						if(configParms.timerUnit>=2)		// ev. altre...
-							configParms.timerUnit=0;
-						break;
-					case MENU_TIMERMODE:
-						configParms.timerOptions ^= 4;
-						break;
-					case MENU_TIMERRETRIGGER:
-						configParms.timerOptions ^= 8;
-						break;
-					case MENU_TIMERBOOT:
-						configParms.timerOptions ^= 1;
-						break;
-					case MENU_TIMERPROTECT:
-						configParms.timerOptions ^= 2;
-						break;
-					case MENU_MAX:
-salva:
-						{
-#if !defined(__XC8)
-						char *p=(char *)&configParms.currentTime;
-						BYTE i;
-					  showText("SSS");
-						for(i=0; i<sizeof(configParms.currentTime); i++) {
-							EEscrivi_(p,*p);
-							p++;
-							}
-						p=(char *)&configParms.currentDate;
-						for(i=0; i<sizeof(configParms.currentDate); i++) {
-							EEscrivi_(p,*p);
-							p++;
-							}
-						EEscrivi_(&configParms.timerUnit,configParms.timerUnit);
-						EEscrivi_(&configParms.timerOptions,configParms.timerOptions);
-						p=(char *)&configParms.timerCount;
-						for(i=0; i<sizeof(configParms.timerCount); i++) {
-							EEscrivi_(p,*p);
-							p++;
-							}
-#else
-            HEFLASH_writeBlock(0,&configParms,sizeof(struct SAVED_PARAMETERS));
-#endif
-						if(Buzzer)
-							Beep();
-						else
-							Delay_S_(10);
-						MenuMode=MENU_TIMER;
-						inEdit=0;
-						}
-						break;
-					}
-				}		// inEdit
-			else {
-				if(!(configParms.timerOptions & 2)) {		// protect (azzeramento)
-	//				if(configParms.timerOptions & 16) {		// resettabile
-					if(TimerCount) {
-						TimerCount=0;
-						PIE2bits.TMR3IE=0;
-						goto fine_sw3;
-						}
-					}
-				}
-
-			}		// sw2
-
-		if(!sw1) {		// sw1: fa partire timer (ev. anche stop)
-
-			if(oldSw & 1) {
-				if(!inEdit) {
+		if(!sw1) {		// sw1: fa start, ++ se in edit, restart se in count retriggerabile
+			if(!inEdit) {
+				if(oldSw & 1) {
+// bah no				if(!MenuMode) 
+do_start:
 					if(!TimerCount) {
 retrigger:
 						StartTimer();
@@ -1199,29 +1122,100 @@ retrigger:
 						}
 					}
 				}
-
-
-			repeatCounter++;
-			if((oldSw & 1) || (repeatCounter>4)) {		// x gestire click prolungato
-				MenuMode++;
-				if(MenuMode==MENU_MAX) {
-					MenuMode=MENU_TIMER;
-					if(inEdit) {
-						inEdit=0;
-  					goto salva;
-						}
+			else {		// inEdit
+				switch(MenuMode) {
+					case MENU_NOEDIT:
+						break;
+					case MENU_TIMER:
+						if(TickGet() & 2) {
+							if(configParms.timerCount<999)
+						  	configParms.timerCount++;
+							else
+						  	configParms.timerCount=0;
+							}
+						break;
+					case MENU_SECONDI:
+					  configParms.currentTime.sec=0;			// direi :)
+						break;
+					case MENU_MINUTI:
+						if(TickGet() & 2) {
+						  configParms.currentTime.min++;
+						  if(configParms.currentTime.min>=60)
+							  configParms.currentTime.min=0;
+							}
+						break;
+					case MENU_ORA:
+						if(TickGet() & 2) {
+						  configParms.currentTime.hour++;
+						  if(configParms.currentTime.hour>=24)
+							  configParms.currentTime.hour=0;
+							}
+						break;
+					case MENU_GIORNO:
+						if(TickGet() & 2) {
+						  configParms.currentDate.mday++;
+							i=dayOfMonth[configParms.currentDate.mon-1];
+							if((i==28) && !(configParms.currentDate.year % 4))
+								i++;
+							if(configParms.currentDate.mday > i) 		// (rimangono i secoli...)
+							  configParms.currentDate.mday=1;
+							}
+						break;
+					case MENU_MESE:
+						if(TickGet() & 2) {
+						  configParms.currentDate.mon++;
+						  if(configParms.currentDate.mon>=12)
+							  configParms.currentDate.mon=1;
+							}
+						break;
+					case MENU_ANNO:
+						if(TickGet() & 2) {
+						  configParms.currentDate.year++;
+						  if(configParms.currentDate.year>=100)
+							  configParms.currentDate.year=0;
+							}
+						break;
+					case MENU_TIMERUNIT:
+						if(oldSw & 1) {
+							configParms.timerUnit++;
+							if(configParms.timerUnit>=2)		// ev. altre...
+								configParms.timerUnit=0;
+							}
+						break;
+					case MENU_TIMERMODE:
+						if(oldSw & 1)
+							configParms.timerOptions ^= 4;
+						break;
+					case MENU_TIMERRETRIGGER:
+						if(oldSw & 1)
+							configParms.timerOptions ^= 8;
+						break;
+					case MENU_TIMERBOOT:
+						if(oldSw & 1)
+							configParms.timerOptions ^= 1;
+						break;
+					case MENU_TIMEREXTERNAL:
+						if(oldSw & 1) {
+							configParms.timerExternalMode++;
+							configParms.timerExternalMode %= 3;
+							}
+						break;
+					case MENU_TIMERPROTECT:
+						if(oldSw & 1)
+							configParms.timerOptions ^= 2;
+						break;
+					case MENU_MAX:
+						break;
 					}
 				}
 			}		//sw1
 		else {
-			repeatCounter=0;
 			}
 fine_sw1:
 #else
 		if(!sw3) {
-
 			repeatCounter++;
-			if((oldSw & 4) || (repeatCounter>4)) {		// x gestire click prolungato
+			if((oldSw & 4) || (repeatCounter>5)) {		// x gestire click prolungato
 				MenuMode++;
 				if(MenuMode==MENU_MAX) {
 					MenuMode=MENU_TIMER;
@@ -1239,7 +1233,185 @@ fine_sw1:
 			}
 				goto fine_sw3;
 #endif
+
+#ifndef USA_USB
+		if(!sw2) {			// sw2: cambia schermata se noedit opp. stop se in count, -- se in edit
+			if(!inEdit) {
+				if(TimerCount) {
+do_stop:
+					if(!(configParms.timerOptions & 2)) {		// protect (azzeramento)
+	//				if(configParms.timerOptions & 16) {		// resettabile
+						TimerCount=0;
+						PIE2bits.TMR3IE=0;
+						goto fine_sw2;
+						}
+					}
+				else {
+					if(oldSw & 2) {
+						MenuMode++;
+						if(MenuMode==MENU_MAX)
+							MenuMode=MENU_TIMER;
+						}
+					}
+				}
+			else {		// inEdit
+				switch(MenuMode) {
+					case MENU_NOEDIT:
+						break;
+					case MENU_TIMER:
+						if(TickGet() & 2) {
+							if(configParms.timerCount>0)
+						  	configParms.timerCount--;
+							else
+						  	configParms.timerCount=999;
+							}
+						break;
+					case MENU_SECONDI:
+					  configParms.currentTime.sec=0;			// direi :)
+						break;
+					case MENU_MINUTI:
+						if(TickGet() & 2) {
+						  if(configParms.currentTime.min>0)
+						  	configParms.currentTime.min--;
+							else
+							  configParms.currentTime.min=59;
+							}
+						break;
+					case MENU_ORA:
+						if(TickGet() & 2) {
+						  if(configParms.currentTime.hour>0)
+							  configParms.currentTime.hour--;
+							else
+							  configParms.currentTime.hour=23;
+							}
+						break;
+					case MENU_GIORNO:
+						if(TickGet() & 2) {
+						  if(configParms.currentDate.mday>1)
+							  configParms.currentDate.mday--;
+							else
+							  configParms.currentDate.mday=30;		// qua me ne fotto :D
+							}
+						break;
+					case MENU_MESE:
+						if(TickGet() & 2) {
+						  if(configParms.currentDate.mon>1)
+						  	configParms.currentDate.mon--;
+							else
+							  configParms.currentDate.mon=12;
+							}
+						break;
+					case MENU_ANNO:
+						if(TickGet() & 2) {
+						  if(configParms.currentDate.year>0)
+							  configParms.currentDate.year--;
+// idem!
+							}
+						break;
+					case MENU_TIMERUNIT:
+						if(oldSw & 2) {
+							if(configParms.timerUnit>0)		// ev. altre...
+								configParms.timerUnit--;
+							else
+								configParms.timerUnit=1;
+							}
+						break;
+					case MENU_TIMERMODE:
+						if(oldSw & 2)
+							configParms.timerOptions ^= 4;
+						break;
+					case MENU_TIMERRETRIGGER:
+						if(oldSw & 2)
+							configParms.timerOptions ^= 8;
+						break;
+					case MENU_TIMERBOOT:
+						if(oldSw & 2)
+							configParms.timerOptions ^= 1;
+						break;
+					case MENU_TIMEREXTERNAL:
+						if(oldSw & 1) {
+							if(configParms.timerExternalMode>0)
+								configParms.timerExternalMode--;
+							else
+								configParms.timerExternalMode=0;
+							}
+						break;
+					case MENU_TIMERPROTECT:
+						if(oldSw & 2)
+							configParms.timerOptions ^= 2;
+						break;
+					case MENU_MAX:
+						break;
+					}
+				}		// inEdit
+
+			}		// sw2
+fine_sw2:
+
+		if(!sw3) {			// sw3: lungo entra edit poi corto si muove tra i campi
+			if(!inEdit) {
+				if(repeatCounter>4) {		// x gestire click prolungato
+					if(!(configParms.timerOptions & 2) || TimerCount==0) {		// protect (modifiche in corsa)
+						inEdit=1;
+						MenuMode=MENU_TIMER;
+						}
+					}
+				}
+// else?? boh no						inEdit=0;
+			else {
+				if(oldSw & 4) {
+					MenuMode++;
+					if(MenuMode==MENU_MAX) {
+						MenuMode=MENU_TIMER;
+	salva:
+						{
+	#if !defined(__XC8)
+						char *p=(char *)&configParms.currentTime;
+						BYTE i;
+					  showText("SSS");
+						for(i=0; i<sizeof(configParms.currentTime); i++) {
+							EEscrivi_(p,*p);
+							p++;
+							}
+						p=(char *)&configParms.currentDate;
+						for(i=0; i<sizeof(configParms.currentDate); i++) {
+							EEscrivi_(p,*p);
+							p++;
+							}
+						EEscrivi_(&configParms.timerUnit,configParms.timerUnit);
+						EEscrivi_(&configParms.timerOptions,configParms.timerOptions);
+						EEscrivi_(&configParms.timerExternalMode,configParms.timerExternalMode);
+						p=(char *)&configParms.timerCount;
+						for(i=0; i<sizeof(configParms.timerCount); i++) {
+							EEscrivi_(p,*p);
+							p++;
+							}
+	#else
+	           HEFLASH_writeBlock(0,&configParms,sizeof(struct SAVED_PARAMETERS));
+	#endif
+						if(Buzzer)
+							Beep();
+						else
+							Delay_S_(10);
+						MenuMode=MENU_TIMER;
+						inEdit=0;
+						}
+						}
+					}
+				}		//sw3
+			repeatCounter++;
+			}
+		else {
+			repeatCounter=0;
+			}		//sw3
+fine_sw3:
+/*		if(!sw3)
+			dim=1;		// tanto per prova!!
+//			Beep();		// tanto per prova!!
+		else
+			dim=0;*/
   
+
 		switch(MenuMode) {
 			case MENU_NOEDIT:
 				break;
@@ -1345,6 +1517,21 @@ fine_sw1:
 				if(inEdit)
 					Displays[0] |= 0b10000000;
 				break;
+			case MENU_TIMEREXTERNAL:
+				switch(configParms.timerExternalMode) {
+					case 0:
+				  	showText("EOF");
+						break;
+					case 1:
+				  	showText("EOS");
+						break;
+					case 2:
+				  	showText("EOR");
+						break;
+					}
+				if(inEdit)
+					Displays[0] |= 0b10000000;
+				break;
 			case MENU_TIMERPROTECT:
 				if(configParms.timerOptions & 2)
 			  	showText("PON");
@@ -1367,21 +1554,6 @@ fine_sw1:
 				}
 			}
 
-		if(!sw3 && (oldSw & 4)) {			// sw3: entro in Edit (ev. esco, ma v. sopra)
-
-			if(!(configParms.timerOptions & 2) || TimerCount==0) {		// protect (modifiche in corsa)
-				inEdit=1;
-				MenuMode=MENU_TIMER;
-				}
-// else?? boh no						inEdit=0;
-
-			}		//sw3
-fine_sw3:
-/*		if(!sw3)
-			dim=1;		// tanto per prova!!
-//			Beep();		// tanto per prova!!
-		else
-			dim=0;*/
 
 		if(cnt >= 10   /*150*/) {			// 2 secondi QUA ...
 			cnt=0;

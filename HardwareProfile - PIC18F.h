@@ -142,6 +142,7 @@ RB6, pin = cat 1
 */
 
     #define m_Rele			          LATBbits.LATB7			// 
+    #define m_Ana			          	PORTAbits.RA4			// 
 
     /** POT ************************************************************/
 //    #define mInitPOT()  {AD1PCFGLbits.PCFG5 = 0;    AD1CON2bits.VCFG = 0x0;    AD1CON3bits.ADCS = 0xFF;    AD1CON1bits.SSRC = 0x0;    AD1CON3bits.SAMC = 0b10000;    AD1CON1bits.FORM = 0b00;    AD1CON2bits.SMPI = 0x0;    AD1CON1bits.ADON = 1;}
