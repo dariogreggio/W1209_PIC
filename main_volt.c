@@ -1056,10 +1056,17 @@ void UserTasks(void) {
 		Voltage=leggi_ana();
 		switch(configParms.voltRange) {			// aggiungere 
 			case 0:
+				Voltage=(((DWORD)Voltage)*100)/1024;
+				break;
+			case 1:		// 0..5
 				Voltage=(((DWORD)Voltage)*500)/1024;
 				break;
-			case 1:
+			case 2:		// 0..12
 				Voltage=(((DWORD)Voltage)*1200)/1024;
+				break;
+			case 3:
+				break;
+			case 4:
 				break;
 			}
 
@@ -1256,7 +1263,7 @@ salva:
 							}
 						EEscrivi_(&configParms.voltRange,configParms.voltRange);
 #else
-	           HEFLASH_writeBlock(0,&configParms,sizeof(struct SAVED_PARAMETERS));
+	          HEFLASH_writeBlock(0,&configParms,sizeof(struct SAVED_PARAMETERS));
 #endif
 						if(Buzzer)
 							Beep();
@@ -1290,7 +1297,16 @@ fine_sw3:
 			  		showNumbers(Voltage,0);
 						break;
 					case 1:
+			  		showNumbers(Voltage,2);
+						break;
+					case 2:
 			  		showNumbers(Voltage,1);
+						break;
+					case 3:
+			  		showNumbers(Voltage,0);
+						break;
+					case 4:
+			  		showNumbers(Voltage,0);
 						break;
 					}
 				if(TickGet() & 2) {
@@ -1332,10 +1348,19 @@ fine_sw3:
 			case MENU_VOLTRANGE:
 				switch(configParms.voltRange) {		// ev. altre...
 					case 0:
-				  	showText("SEC");
+				  	showText("01V");
 						break;
 					case 1:
-				  	showText("DEC");
+				  	showText("5 V");
+						break;
+					case 2:
+				  	showText("12V");
+						break;
+					case 3:
+				  	showText("V");
+						break;
+					case 4:
+				  	showText("V");
 						break;
 					}
 				if(inEdit)
