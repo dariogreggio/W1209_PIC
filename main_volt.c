@@ -197,7 +197,7 @@ static const rom char CopyrString[]= {'V','o','l','t','m','e','t','r','o',' ','W
 #ifdef USA_USB
 'c','o','n',' ','U','S','B',' ',
 #endif
-	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','2','9','/','1','1','/','2','3', 0 };
+	'v',VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','3','0','/','1','1','/','2','3', 0 };
 
 const rom BYTE table_7seg[]={ 0, 	//PGFEDCBA
 													0b00111111,0b00000110,0b01011011,0b01001111,0b01100110,
@@ -996,13 +996,45 @@ void SetRange(BYTE n) {
 		configParms.voltRange=0;
 	}
 
+void ShowRange(void) {
+
+	switch(configParms.voltRange) {		// ev. altre...
+		case 0:
+	  	showText("01V");
+			break;
+		case 1:
+	  	showText("5 V");
+			break;
+		case 2:
+	  	showText("10V");
+			break;
+		case 3:
+	  	showText("1HV");		// 100 :)
+			break;
+		case 4:
+	  	showText("1KV");		//
+			break;
+		case 5:
+	  	showText("VAC");
+			break;
+		}
+	}
+
 void UserTasks(void) {
 	int i;
 	static BYTE inEdit=0,oldSw=7,repeatCounter=0,inEditTime=0;
 	static BYTE cnt=0,cnt2=0;
-	static WORD oldVoltage;
+	int oldVoltage;
+	WORD oldVoltage2;
 
 
+		switch(configParms.voltRange) {			// 
+			case 5:		// AC più veloce (...)
+				Voltage=leggi_ana();
+				break;
+			default:
+				break;
+			}
 
 	if(second_10) {			// 100 mSec 
 #warning + rapido se timerCount più rapido?? anche per rele'
@@ -1061,9 +1093,15 @@ void UserTasks(void) {
 #endif
 
 
-		Voltage=leggi_ana();
+		switch(configParms.voltRange) {			// 
+			case 5:		// 
+				break;
+			default:
+				Voltage=leggi_ana();
+				break;
+			}
 		switch(configParms.voltRange) {			// aggiungere 
-			case 0:
+			case 0:		// 0..0.1
 				m_Rele=0;
 				Voltage=(((DWORD)Voltage)*100)/1024;
 				break;
@@ -1071,9 +1109,9 @@ void UserTasks(void) {
 				m_Rele=0;
 				Voltage=(((DWORD)Voltage)*500)/1024;
 				break;
-			case 2:		// 0..12
+			case 2:		// 0..10
 				m_Rele=0;
-				Voltage=(((DWORD)Voltage)*1200)/1024;
+				Voltage=(((DWORD)Voltage)*1000)/1024;
 				break;
 			case 3:		// 0..10 con divisore (...)
 				m_Rele=1;
@@ -1095,9 +1133,11 @@ void UserTasks(void) {
 				break;
 			case 5:		// +- 9.9 AC (...)
 				m_Rele=0;
-//				Voltage=(((DWORD)Voltage)-512)/52;
-				oldVoltage+=Voltage;		// ovviamente migliorare!
-				oldVoltage /= 2;
+				oldVoltage=Voltage-512;
+				oldVoltage=abs(oldVoltage);
+				oldVoltage2+=oldVoltage;		// 
+				oldVoltage2 /= 2;
+				Voltage=oldVoltage2;
 				break;
 			}
 
@@ -1106,6 +1146,8 @@ void UserTasks(void) {
 			if(!inEdit) {
 				if(oldSw & 1) {
 					SetRange(++configParms.voltRange);
+					ShowRange();
+					Delay_S_(3);
 					}
 				}
 			else {		// inEdit
@@ -1319,30 +1361,27 @@ fine_sw3:
 			case MENU_NOEDIT:
 				break;
 			case MENU_VOLT:
-				switch(configParms.voltRange) {			// aggiungere 
-					case 0:
-			  		showNumbers(Voltage,0);
-						break;
-					case 1:
-			  		showNumbers(Voltage,2);
-						break;
-					case 2:
-			  		showNumbers(Voltage,1);
-						break;
-					case 3:
-			  		showNumbers(Voltage,0);
-						break;
-					case 4:
-			  		showNumbers(Voltage,0);
-						break;
-					case 5:
-			  		showNumbers((((long int)Voltage)-512)/52,1);
-						break;
-					}
-				if(TickGet() & 2) {
-					Displays[0] |= 0b10000000;
-					Displays[1] |= 0b10000000;
-					Displays[2] |= 0b10000000;
+				if(TickGet() & 2) {		// un pelo + lento
+					switch(configParms.voltRange) {			// aggiungere 
+						case 0:
+				  		showNumbers(Voltage,0);
+							break;
+						case 1:
+				  		showNumbers(Voltage,2);
+							break;
+						case 2:
+				  		showNumbers(Voltage,1);
+							break;
+						case 3:
+				  		showNumbers(Voltage,0);
+							break;
+						case 4:
+				  		showNumbers(Voltage,0);
+							break;
+						case 5:
+				  		showNumbers((((int)Voltage)-512)/52,1);
+							break;
+						}
 					}
 				break;
 			case MENU_ORA:
@@ -1376,26 +1415,7 @@ fine_sw3:
 			  showChar('A',0,inEdit);
 				break;
 			case MENU_VOLTRANGE:
-				switch(configParms.voltRange) {		// ev. altre...
-					case 0:
-				  	showText("01V");
-						break;
-					case 1:
-				  	showText("5 V");
-						break;
-					case 2:
-				  	showText("12V");
-						break;
-					case 3:
-				  	showText("1HV");		// 100 :)
-						break;
-					case 4:
-				  	showText("1KV");		//
-						break;
-					case 5:
-				  	showText("VAC");
-						break;
-					}
+				ShowRange();
 				if(inEdit)
 					Displays[0] |= 0b10000000;
 				break;

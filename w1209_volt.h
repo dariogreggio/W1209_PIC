@@ -60,6 +60,7 @@ void __delay_ms(BYTE mSec);
 #endif
 void Delay_S_(BYTE );				// circa n*100mSec
 
+#define abs(a) (((a)>=0) ? (a) : (-(a)))
 	
 #define DELAY_SPI_FAST 5
 #define Delay08()	__delay_us(TIME_GRANULARITY)			// 1 bit-time 
