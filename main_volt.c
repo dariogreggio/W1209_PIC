@@ -992,7 +992,7 @@ signed int leggi_ana() {
 void SetRange(BYTE n) {
 
 	configParms.voltRange=n;		// 
-	if(configParms.voltRange>=5)
+	if(configParms.voltRange>=6)
 		configParms.voltRange=0;
 	}
 
@@ -1079,7 +1079,21 @@ void UserTasks(void) {
 				m_Rele=1;
 				Voltage=(((DWORD)Voltage)*1000)/1024;
 				break;
-			case 4:		// +- 9.9 AC (...)
+			case 4:		// 0..10 o 100 autoranging 
+				if(m_Rele) {
+					if(Voltage>900) {
+						m_Rele=1;
+						}
+					Voltage=(((DWORD)Voltage)*1000)/1024;
+					}
+				else {
+					if(Voltage<85) {
+						m_Rele=0;
+						}
+					Voltage=(((DWORD)Voltage)*1000)/1024;
+					}
+				break;
+			case 5:		// +- 9.9 AC (...)
 				m_Rele=0;
 //				Voltage=(((DWORD)Voltage)-512)/52;
 				oldVoltage+=Voltage;		// ovviamente migliorare!
@@ -1319,6 +1333,9 @@ fine_sw3:
 			  		showNumbers(Voltage,0);
 						break;
 					case 4:
+			  		showNumbers(Voltage,0);
+						break;
+					case 5:
 			  		showNumbers((((long int)Voltage)-512)/52,1);
 						break;
 					}
@@ -1373,6 +1390,9 @@ fine_sw3:
 				  	showText("1HV");		// 100 :)
 						break;
 					case 4:
+				  	showText("1KV");		//
+						break;
+					case 5:
 				  	showText("VAC");
 						break;
 					}
