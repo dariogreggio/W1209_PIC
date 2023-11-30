@@ -989,10 +989,18 @@ signed int leggi_ana() {
 	}
 
 
+void SetRange(BYTE n) {
+
+	configParms.voltRange=n;		// 
+	if(configParms.voltRange>=5)
+		configParms.voltRange=0;
+	}
+
 void UserTasks(void) {
 	int i;
 	static BYTE inEdit=0,oldSw=7,repeatCounter=0,inEditTime=0;
 	static BYTE cnt=0,cnt2=0;
+	static WORD oldVoltage;
 
 
 
@@ -1056,24 +1064,34 @@ void UserTasks(void) {
 		Voltage=leggi_ana();
 		switch(configParms.voltRange) {			// aggiungere 
 			case 0:
+				m_Rele=0;
 				Voltage=(((DWORD)Voltage)*100)/1024;
 				break;
 			case 1:		// 0..5
+				m_Rele=0;
 				Voltage=(((DWORD)Voltage)*500)/1024;
 				break;
 			case 2:		// 0..12
+				m_Rele=0;
 				Voltage=(((DWORD)Voltage)*1200)/1024;
 				break;
-			case 3:
+			case 3:		// 0..10 con divisore (...)
+				m_Rele=1;
+				Voltage=(((DWORD)Voltage)*1000)/1024;
 				break;
-			case 4:
+			case 4:		// +- 9.9 AC (...)
+				m_Rele=0;
+//				Voltage=(((DWORD)Voltage)-512)/52;
+				oldVoltage+=Voltage;		// ovviamente migliorare!
+				oldVoltage /= 2;
 				break;
 			}
 
 #ifndef USA_USB
-		if(!sw1) {		// sw1: fa start, ++ se in edit, restart se in count retriggerabile
+		if(!sw1) {		// sw1: cambia range, ++ se in edit
 			if(!inEdit) {
 				if(oldSw & 1) {
+					SetRange(++configParms.voltRange);
 					}
 				}
 			else {		// inEdit
@@ -1125,9 +1143,7 @@ void UserTasks(void) {
 						break;
 					case MENU_VOLTRANGE:
 						if(oldSw & 1) {
-							configParms.voltRange++;
-							if(configParms.voltRange>=5)
-								configParms.voltRange=0;
+							SetRange(++configParms.voltRange);
 							}
 						break;
 					case MENU_MAX:
@@ -1161,7 +1177,7 @@ fine_sw1:
 #endif
 
 #ifndef USA_USB
-		if(!sw2) {			// sw2: cambia schermata se noedit opp. stop se in count, -- se in edit
+		if(!sw2) {			// sw2: cambia schermata se noedit , -- se in edit
 			if(!inEdit) {
 				if(oldSw & 2) {
 					MenuMode++;
@@ -1219,10 +1235,7 @@ fine_sw1:
 						break;
 					case MENU_VOLTRANGE:
 						if(oldSw & 2) {
-							if(configParms.voltRange>0)		// ev. altre...
-								configParms.voltRange--;
-							else
-								configParms.voltRange=4;
+							SetRange(--configParms.voltRange);
 							}
 						break;
 					case MENU_MAX:
@@ -1306,7 +1319,7 @@ fine_sw3:
 			  		showNumbers(Voltage,0);
 						break;
 					case 4:
-			  		showNumbers(Voltage,0);
+			  		showNumbers((((long int)Voltage)-512)/52,1);
 						break;
 					}
 				if(TickGet() & 2) {
@@ -1357,10 +1370,10 @@ fine_sw3:
 				  	showText("12V");
 						break;
 					case 3:
-				  	showText("V");
+				  	showText("1HV");		// 100 :)
 						break;
 					case 4:
-				  	showText("V");
+				  	showText("VAC");
 						break;
 					}
 				if(inEdit)
