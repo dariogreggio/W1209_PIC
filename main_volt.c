@@ -305,7 +305,7 @@ volatile unsigned char Displays[3];			// 3 display
 volatile BYTE dim=FALSE;
 BYTE Buzzer=0;
 WORD Voltage=0;
-static BYTE firstPassDisplay;
+static BYTE firstPassDisplay=20;
 volatile WORD tick10=0;
 volatile BYTE second_10=0;
 #if defined(__XC8)
@@ -1022,7 +1022,7 @@ void ShowRange(void) {
 
 void UserTasks(void) {
 	int i;
-	static BYTE inEdit=0,oldSw=7,repeatCounter=0,inEditTime=0;
+	static BYTE inEdit=0,oldSw=7,repeatCounter=0,inEditTime=0,displayDivider=0;
 	static BYTE cnt=0,cnt2=0;
 	int oldVoltage;
 	WORD oldVoltage2;
@@ -1060,9 +1060,9 @@ void UserTasks(void) {
 				showChar(CopyrString[31],1,1);
 				showChar(CopyrString[30],0,0);
 #else
-				showChar(CopyrString[26],2,0);
-				showChar(CopyrString[24],1,1);
-				showChar(CopyrString[23],0,0);
+				showChar(CopyrString[25],2,0);
+				showChar(CopyrString[23],1,1);
+				showChar(CopyrString[22],0,0);
 #endif
 				}
 			else {
@@ -1071,15 +1071,17 @@ void UserTasks(void) {
 				showChar(CopyrString[36],1,0);
 				showChar(CopyrString[34],0,1);
 #else
-				showChar(CopyrString[30],2,1);
-				showChar(CopyrString[29],1,0);
-				showChar(CopyrString[27],0,1);
+				showChar(CopyrString[29],2,1);
+				showChar(CopyrString[28],1,0);
+				showChar(CopyrString[26],0,1);
 #endif
 				}
 			MenuMode=MENU_VOLT;
 			return;
 			}
 		else {
+			ShowRange();
+			Delay_S_(7);
 			}
 
 //		cnt+=10;			// 
@@ -1306,7 +1308,7 @@ fine_sw2:
 			if(!inEdit) {
 				if(repeatCounter>4) {		// x gestire click prolungato
 					inEdit=1;
-					MenuMode=MENU_VOLT;
+					MenuMode=MENU_VOLTRANGE;
 					}
 				}
 // else?? boh no						inEdit=0;
@@ -1361,7 +1363,9 @@ fine_sw3:
 			case MENU_NOEDIT:
 				break;
 			case MENU_VOLT:
-				if(TickGet() & 2) {		// un pelo + lento
+				displayDivider++;
+				if(displayDivider>=3) {		// un pelo + lento
+					displayDivider=0;
 					switch(configParms.voltRange) {			// aggiungere 
 						case 0:
 				  		showNumbers(Voltage,0);
